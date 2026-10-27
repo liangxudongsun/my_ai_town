@@ -84,6 +84,45 @@ fn interact(w: &mut World, command: Chat) {
 }
 
 #[test]
+fn avatar_can_cancel_a_running_chat() {
+    let mut w = world();
+    enter(&mut w);
+    interact(
+        &mut w,
+        Chat::Offer {
+            partner_id: "a".into(),
+            interaction: InteractionKind::Talk,
+            message: "聊聊？".into(),
+        },
+    );
+    w.interact(
+        "a",
+        "accept",
+        w.actor("a").unwrap().actions.revision,
+        &Chat::Reply {
+            interaction_id: "chat".into(),
+            accept: true,
+            message: "好。".into(),
+        },
+    )
+    .unwrap();
+    assert!(w.active_chat(ID).is_some());
+    interact(
+        &mut w,
+        Chat::Cancel {
+            interaction_id: "chat".into(),
+        },
+    );
+    assert!(w.active_chat(ID).is_none());
+    assert!(w.active_chat("a").is_none());
+    assert_eq!(
+        w.interactions().of("a", "chat").unwrap().status,
+        protocol::InteractionStatus::Succeeded
+    );
+    assert!(w.avatar().unwrap().interaction_available());
+}
+
+#[test]
 fn avatar_uses_inventory_and_chat_without_an_agent_and_keeps_identity_after_leaving() {
     busy_talk::invitation_preserves_work_until_acceptance();
     let mut w = world();

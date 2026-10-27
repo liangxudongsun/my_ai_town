@@ -63,6 +63,17 @@ export function createAvatarPanels(ui: AvatarUI, deps: AvatarDeps, actions: Avat
   } = deps
   const { execute, openTab, targets, stopMoving, render, selectBag, leave } = actions
   const { me, meDot, meName, meSub, mid, bagCount, title, meta, body, profile, needsStrip } = ui
+  // 状态每拍都会更新；保留内容没变的按钮，避免按下后、松开前被重建而丢失点击。
+  function updateMid(next: HTMLElement[]) {
+    for (let i = 0; i < next.length; i++) {
+      const current = mid.children[i] as HTMLElement | undefined
+      const incoming = next[i]
+      if (!current) mid.append(incoming)
+      else if (current.isEqualNode(incoming)) current.onclick = incoming.onclick
+      else mid.replaceChild(incoming, current)
+    }
+    while (mid.children.length > next.length) mid.lastElementChild?.remove()
+  }
   function renderHud(snapshot: AvatarPanelState) {
     const { state, online, holds } = snapshot
     const a = state?.actor
@@ -93,7 +104,7 @@ export function createAvatarPanels(ui: AvatarUI, deps: AvatarDeps, actions: Avat
       meSub.textContent += ` · ${a.body?.limitation ?? ''}${lowest ? ` · ${lowest.need} ${lowest.value.toFixed(0)}` : ''}`
     }
     bagCount.textContent = String(a.inventory.used)
-    mid.replaceChildren()
+    const items: HTMLElement[] = []
     const talk = runningTalk(state)
     if (!state.speed && holds.length) {
       // 和地图上的提示卡同一个说法和修法；几种原因同时出现时先修第一种
@@ -103,7 +114,7 @@ export function createAvatarPanels(ui: AvatarUI, deps: AvatarDeps, actions: Avat
         fixHold(fix.fix, first.holds[0].provider ?? '')
       )
       go.classList.add('main')
-      mid.append(el('span', `已暂停：${first.copy.short}`), go)
+      items.push(el('span', `已暂停：${first.copy.short}`), go)
     } else if (!state.speed) {
       const resume = actionButton(
         state?.awaiting_arrival ? '等待到达 · 继续世界' : '继续世界',
@@ -111,34 +122,47 @@ export function createAvatarPanels(ui: AvatarUI, deps: AvatarDeps, actions: Avat
         () => send({ type: 'set_speed', request_id: newId(), speed: resumeSpeed })
       )
       resume.classList.add('main')
-      mid.append(resume)
+      items.push(resume)
     } else if (state?.awaiting_arrival) {
-      mid.append(el('span', '等待村民到达，可随时交还 AI'))
-    } else if (a.busy) {
-      const busy = el('span', `正在${a.activity}${a.remaining ? ` · ${a.remaining}` : ''}`)
-      busy.className = 'avatar-busy'
-      mid.append(
-        busy,
-        actionButton('取消', undefined, () => void execute({ kind: 'stop' }))
-      )
+      items.push(el('span', '等待村民到达，可随时交还 AI'))
     } else if (talk) {
       const chatting = actionButton(`和${partnerNames(state, talk)}交谈中`, undefined, () =>
         openTab('chat')
       )
       chatting.classList.add('main')
-      mid.append(chatting)
+      items.push(
+        chatting,
+        actionButton(
+          '取消',
+          undefined,
+          () =>
+            void execute({
+              kind: 'interact',
+              revision: a.revision,
+              command: { operation: 'cancel', interaction_id: talk.id },
+            })
+        )
+      )
+    } else if (a.busy) {
+      const busy = el('span', `正在${a.activity}${a.remaining ? ` · ${a.remaining}` : ''}`)
+      busy.className = 'avatar-busy'
+      items.push(
+        busy,
+        actionButton('取消', undefined, () => void execute({ kind: 'stop' }))
+      )
     } else {
       const main = targets().find((t) => t.prompt.key)
       if (main) {
         const b = actionButton(main.prompt.label, 'E', main.run)
         b.classList.add('main')
-        mid.append(b)
+        items.push(b)
       } else {
         const tip = el('span', '点地图走过去，点人或东西互动')
         tip.className = 'avatar-hud-hint'
-        mid.append(tip)
+        items.push(tip)
       }
     }
+    updateMid(items)
   }
   // 交谈记录贴着底部：停在最底下时，新的一句、弹出键盘把面板压矮，都保持最新一句看得见；
   // 往上翻看旧话时不打扰
