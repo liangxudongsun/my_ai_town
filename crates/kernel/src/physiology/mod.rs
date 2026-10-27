@@ -21,6 +21,10 @@ pub const HEAL_RATE: f64 = 0.08;
 pub const EXPOSURE_NEEDS: [Need; 3] = [Need::Fullness, Need::Water, Need::Energy];
 /// 劳作时水分的额外消耗（每分钟）。
 const LABOR_WATER_COST: f64 = 0.04;
+/// 淋湿进度的上限：到这里着凉生病，进度清零。
+pub const WET_LIMIT: f64 = 90.0;
+/// 不淋雨雪时每分钟变干多少。
+const DRY_RATE: f64 = 1.0;
 
 /// 世界开关里该项是否开启。
 pub(crate) fn enabled(s: PhysiologySwitches, need: Need) -> bool {
@@ -46,6 +50,8 @@ pub(crate) struct Rates {
     pub values: NeedValues<f64>,
     /// 下标与 `EXPOSURE_NEEDS` 同序。
     pub exposure: [f64; 3],
+    /// 淋湿进度每分钟的变化（天气影响身体开启时）。
+    pub wet: f64,
 }
 
 /// 速率来源的文案收集器：只有 body_view 需要，推进时传 None。
@@ -113,6 +119,7 @@ impl Needs {
                 health: 0.0,
             },
             exposure: [0.0; 3],
+            wet: 0.0,
         };
         self.note_enabled(
             &mut trace,
@@ -306,6 +313,10 @@ impl Needs {
                 notices.push(format!("{}极低，再不补充就撑不住了", need.label()));
             }
         }
+        self.body.wet = snapped(
+            (self.body.wet + r.wet * dt).clamp(0.0, WET_LIMIT),
+            &[0.0, WET_LIMIT],
+        );
         for (i, need) in EXPOSURE_NEEDS.into_iter().enumerate() {
             let old = self.body.exposure[i];
             self.body.exposure[i] = snapped(
@@ -485,8 +496,73 @@ pub(crate) fn rates(w: &World) -> Vec<(String, Rates)> {
     w.actors
         .values()
         .filter(|a| a.present() && !a.is_avatar())
-        .map(|a| (a.id.clone(), a.needs.rates(body_spot(w, a), None)))
+        .map(|a| {
+            let mut r = a.needs.rates(body_spot(w, a), None);
+            weather_rates(w, a, &mut r, &mut None);
+            (a.id.clone(), r)
+        })
         .collect()
+}
+
+/// 露天时这种天气每分钟额外消耗的精力和淋湿的速度；不下雨雪时为 None。
+fn precipitation(kind: protocol::WeatherKind) -> Option<(f64, f64)> {
+    use protocol::WeatherKind as K;
+    match kind {
+        K::Clear | K::Overcast => None,
+        K::LightRain => Some((0.01, 0.5)),
+        K::Rain | K::Snow => Some((0.02, 0.75)),
+        K::HeavyRain => Some((0.04, 1.0)),
+        K::Thunderstorm => Some((0.06, 1.5)),
+    }
+}
+
+/// 天气影响身体：开启时露天淋雨雪额外消耗精力、越来越湿；在室内、遮蔽处或不下雨雪时慢慢变干。
+/// 位置未知时不算淋着。
+fn weather_rates(w: &World, a: &Actor, r: &mut Rates, trace: &mut Trace<'_>) {
+    let n = &a.needs;
+    if !w.physiology.weather || n.body.dead {
+        return;
+    }
+    let exposed = w
+        .weather
+        .as_ref()
+        .filter(|_| w.exposure_at(&a.id) == protocol::Exposure::Outdoor)
+        .and_then(|weather| precipitation(weather.view.kind).map(|p| (weather.view.kind, p)));
+    match exposed {
+        Some((kind, (energy, wet))) => {
+            if n.on(Need::Energy) {
+                r.values[Need::Energy] -= energy;
+            }
+            if n.on(Need::Health) {
+                r.wet = wet;
+            }
+            note(trace, || {
+                let left = ((WET_LIMIT - n.body.wet) / wet).ceil();
+                format!(
+                    "露天淋{}：精力每分钟额外消耗 {energy:.2} 点；身上越来越湿，再淋约 {left:.0} 分钟会着凉生病",
+                    kind.label()
+                )
+            });
+        }
+        None if n.body.wet > 0.0 => {
+            r.wet = -DRY_RATE;
+            note(trace, || {
+                format!(
+                    "身上还湿着，不淋雨雪时约 {:.0} 分钟变干",
+                    n.body.wet / DRY_RATE
+                )
+            });
+        }
+        None => {}
+    }
+}
+
+/// 当前速率的来源说明，加上天气的影响（观察仪与提示词用）。
+pub(crate) fn world_causes(w: &World, a: &Actor) -> Vec<String> {
+    let mut causes = a.needs.causes(body_spot(w, a));
+    let mut r = Rates::default();
+    weather_rates(w, a, &mut r, &mut Some(&mut causes));
+    causes
 }
 
 /// 最近一个数值阈值或损害时长还有多久。
@@ -501,6 +577,7 @@ pub(crate) fn next_boundary(actors: &Actors, rates: &[(String, Rates)]) -> f64 {
         for (i, g) in GRACE.into_iter().enumerate() {
             next = next.min(boundary(n.body.exposure[i], r.exposure[i], &[0.0, g]));
         }
+        next = next.min(boundary(n.body.wet, r.wet, &[0.0, WET_LIMIT]));
     }
     next
 }
@@ -552,5 +629,5 @@ pub(crate) fn check_body_use(
             .is_none_or(|(n, s)| n >= s.cost),
         KernelError::physiology("道具补给已耗尽")
     );
-    Ok(())
+    w.check_requirements(id, action)
 }

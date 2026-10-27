@@ -61,6 +61,10 @@ impl World {
         let Some(a) = self.actor(actor) else {
             return Exposure::Unknown;
         };
+        // 正在遮蔽处里做事（避雨、睡觉）按室内算。
+        if crate::physiology::body_spot(self, a).is_some_and(|s| self.is_shelter(&s.prop)) {
+            return Exposure::Indoor;
+        }
         match &a.locus.at {
             At::Offstage => Exposure::Offstage,
             At::Free {
@@ -71,6 +75,11 @@ impl World {
             },
             _ => self.locale_exposure(&a.locus.locale),
         }
+    }
+    pub(crate) fn is_shelter(&self, prop: &str) -> bool {
+        self.topo
+            .prop(prop)
+            .is_some_and(|p| p.shelter && !p.withdrawn)
     }
     pub fn locale_exposure(&self, locale: &str) -> Exposure {
         self.topo

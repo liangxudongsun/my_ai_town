@@ -16,7 +16,7 @@ fn essential(spot: Option<&Spot>) -> bool {
         action.on_complete.iter().any(|e| match e {
             InstantEffect::Restore {need, amount} => *amount > 0. && matches!(need, Need::Fullness | Need::Water | Need::Health),
             InstantEffect::CureCondition {..} | InstantEffect::Revive {..} => true,
-            InstantEffect::ApplyCondition {..} => false,
+            _ => false,
         }) || action.during.iter().any(|e| matches!(e, Effect::RestoreNeed {need: Need::Fullness | Need::Water | Need::Health, per_minute, ..} if *per_minute > 0.))
     } else {
         s.fullness_rate > 0. || s.water_rate > 0. || s.health_rate > 0.
@@ -49,10 +49,17 @@ impl WeatherState {
 }
 
 impl World {
-    /// 没有启用天气的地图不限制活动。
+    /// 没有启用天气的地图不限制活动。天气影响身体开启时，露天下雨雪的说明写明后果。
     fn weather_policy(&self, exposure: Exposure, exempt: bool) -> WeatherPolicy {
         match &self.weather {
-            Some(w) => w.policy(exposure, exempt),
+            Some(w) => {
+                let mut policy = w.policy(exposure, exempt);
+                let wetting = !matches!(w.view.kind, WeatherKind::Clear | WeatherKind::Overcast);
+                if self.physiology.weather && wetting && exposure == Exposure::Outdoor {
+                    policy.reason += "；露天会淋湿：精力额外消耗，湿透会着凉生病，可去室内或遮蔽处";
+                }
+                policy
+            }
             None => WeatherPolicy {
                 allowed: true,
                 code: None,
@@ -67,7 +74,9 @@ impl World {
         locale: &str,
         spot: Option<&Spot>,
     ) -> Result<()> {
-        let exposure = if self.actor(actor).is_some_and(|a| a.locus.locale == locale) {
+        let exposure = if spot.is_some_and(|s| self.is_shelter(&s.prop)) {
+            Exposure::Indoor
+        } else if self.actor(actor).is_some_and(|a| a.locus.locale == locale) {
             self.exposure_at(actor)
         } else {
             self.locale_exposure(locale)

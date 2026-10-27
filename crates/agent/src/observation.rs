@@ -70,10 +70,13 @@ fn prop_view(world: &World, actor: &str, p: &kernel::topology::Prop) -> Value {
     view
 }
 
-/// 道具定义写了说明才附带。
+/// 道具定义写了说明才附带；遮蔽处另外标出。
 fn with_description(view: &mut Value, p: &kernel::topology::Prop) {
     if !p.description.is_empty() {
         view["description"] = json!(p.description);
+    }
+    if p.shelter {
+        view["shelter"] = json!(true);
     }
 }
 

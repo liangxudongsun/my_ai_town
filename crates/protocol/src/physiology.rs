@@ -58,9 +58,13 @@ pub struct Physiology {
     pub conditions: Vec<BodyCondition>,
     /// 饥饿、缺水、过劳的累计危险分钟，恢复到安全值后逐步消退。
     pub exposure: [f64; 3],
+    /// 露天淋雨雪的累计进度，到上限着凉生病后清零；在室内或遮蔽处逐步变干。旧存档没有这一项。
+    #[serde(default)]
+    pub wet: f64,
     pub history: Vec<BodyEvent>,
 }
 /// 世界级生理开关：关掉的一项数值冻结，不限制活动，不进入村民观察。
+/// `weather` 是天气影响身体：露天淋雨雪额外消耗精力，淋久了生病。旧存档没有这一项，按关闭读入。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PhysiologySwitches {
@@ -68,6 +72,8 @@ pub struct PhysiologySwitches {
     pub energy: bool,
     pub water: bool,
     pub health: bool,
+    #[serde(default)]
+    pub weather: bool,
 }
 impl Default for PhysiologySwitches {
     fn default() -> Self {
@@ -76,6 +82,7 @@ impl Default for PhysiologySwitches {
             energy: true,
             water: true,
             health: true,
+            weather: false,
         }
     }
 }

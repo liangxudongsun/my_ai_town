@@ -92,6 +92,7 @@ pub fn resolve(instance: &Instance, definition: &Definition) -> Result<Prop> {
         board: instance.board.clone(),
         readable: definition.readable.clone(),
         bulletin_board: definition.bulletin_board,
+        shelter: definition.shelter,
         withdrawn: false,
         verbs: definition
             .actions

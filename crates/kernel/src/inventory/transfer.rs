@@ -70,6 +70,7 @@ fn portions(
         actions: vec![use_action],
         readable: None,
         bulletin_board: false,
+        shelter: false,
     };
     def.validate()?;
     let prefix = format!("{:x}", Sha256::digest(format!("{}/{key}", actor.id)));

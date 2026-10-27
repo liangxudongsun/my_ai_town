@@ -48,6 +48,8 @@ pub struct World {
     pub(crate) physiology: PhysiologySwitches,
     /// 空间放置器：由 host 注入，内核放置道具时向它要位置与通路。
     pub(crate) placer: Option<Box<dyn Placer>>,
+    /// 道具动作引发的后续：定时事件、随机流（happenings.rs），随快照保存。
+    pub(crate) happenings: crate::happenings::Happenings,
 }
 
 impl World {
@@ -68,6 +70,7 @@ impl World {
             need_rules,
             physiology: Default::default(),
             placer: None,
+            happenings: Default::default(),
         }
     }
 

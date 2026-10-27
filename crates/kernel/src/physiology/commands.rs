@@ -3,7 +3,7 @@ use super::{body_spot, check_body_use, check_condition, check_revival, check_val
 use crate::error::{KernelError, Result};
 use crate::{
     needs::{Abilities, NeedValues},
-    props::{Action, InstantEffect, Need},
+    props::{InstantEffect, Need},
     World,
 };
 use protocol::{
@@ -13,7 +13,7 @@ use protocol::{
 impl World {
     pub fn body_view(&self, id: &str) -> Option<protocol::BodyView> {
         let a = self.actors.get(id)?;
-        let mut v = a.needs.view(a.needs.causes(body_spot(self, a)));
+        let mut v = a.needs.view(super::world_causes(self, a));
         v.revision = a.actions.revision;
         Some(v)
     }
@@ -81,6 +81,12 @@ impl World {
             }
             for notice in notices {
                 self.body_event(&id, BodyEventKind::Pressure, "生理变化", notice, None);
+            }
+            if self.actors[&id].needs.body.wet >= super::WET_LIMIT - 1e-8 {
+                self.actor_mut(&id).needs.body.wet = 0.0;
+                // 健康机制关闭时不会积累淋湿进度，这里一定能施加。
+                let _ = self.apply_condition(&id, C::Illness, 1.0, "淋雨受凉");
+                self.notify(&id, "淋得太久，着凉生病了".into());
             }
             let n = &self.actors[&id].needs;
             if (n.health.value <= 0.0 && !n.body.dead) || n.abilities() != was {
@@ -268,7 +274,8 @@ impl World {
         Ok(())
     }
 
-    /// 定时道具动作完成时的身体结算：消耗补给、施加完成效果、通知双方。
+    /// 定时道具动作完成时的结算：先掷定概率效果，再做会失败的产出（建道具、放进背包），
+    /// 然后才消耗补给和前提物品、施加身体效果、安排后续，最后通知双方。
     pub(crate) fn finish_body_use(&mut self, id: &str) -> Result<Vec<String>> {
         let Some(spot) = body_spot(self, &self.actors[id]).cloned() else {
             return Ok(vec![]);
@@ -276,7 +283,7 @@ impl World {
         let Some(action) = spot.action.clone() else {
             return Ok(vec![]);
         };
-        if action.on_complete.is_empty() {
+        if action.on_complete.is_empty() && !action.requires.iter().any(|r| r.consume) {
             return Ok(vec![]);
         }
         let a = &self.actors[id];
@@ -294,13 +301,18 @@ impl World {
         check_body_use(self, id, &locale, &spot.prop, &action, recipient.as_deref())?;
         let target = recipient.unwrap_or_else(|| id.to_string());
         let was = self.actors[&target].needs.abilities();
-        // 全部参数及动态条件已检查；此后无异步点，消耗和效果同一个世界事务完成。
-        let mut changes = Vec::new();
+        let key = format!("{}/{}@{}", spot.prop, action.id, self.minutes.to_bits());
+        let (effects, misses) = self.roll_effects(&action.on_complete);
+        self.check_made_items(id, &effects, &key)?;
+        // 以上检查都通过才改世界；产出在消耗之前，放不下道具时什么都没用掉。
+        let mut changes = self.make_things(id, &effects, &key)?;
         if let Some(s) = &action.supply {
             let remaining = self.props.consume_supply(&spot.prop, &action, 1);
             changes.push(crate::outcome::supply_used(s.cost, remaining));
         }
-        changes.extend(self.apply_instant_effects(&target, &action, &source)?);
+        changes.extend(self.use_up_requirements(id, &action));
+        changes.extend(self.apply_instant_effects(&target, &effects, &source)?);
+        changes.extend(misses);
         if action.consumes_item {
             self.consume_carried_prop(&spot.prop);
         }
@@ -324,14 +336,15 @@ impl World {
         Ok(changes)
     }
 
+    /// 身体效果与后续安排；产出物品和建道具已在 `make_things` 里做完。
     fn apply_instant_effects(
         &mut self,
         target: &str,
-        action: &Action,
+        effects: &[InstantEffect],
         source: &str,
     ) -> Result<Vec<String>> {
         let mut changes = Vec::new();
-        for e in &action.on_complete {
+        for e in effects {
             match e {
                 InstantEffect::Restore { need, amount } => {
                     let gained = self.actor_mut(target).needs.restore(*need, *amount);
@@ -362,6 +375,20 @@ impl World {
                     self.revive(target, *values, *clear_conditions, source)?;
                     changes.push(crate::outcome::REVIVED.into());
                 }
+                InstantEffect::Schedule {
+                    key,
+                    after_minutes,
+                    text,
+                    place,
+                } => changes.push(self.schedule(target, key, *after_minutes, text, place.as_ref())),
+                InstantEffect::Depart { text } => {
+                    self.depart_later(target, text);
+                    changes.push(text.clone());
+                }
+                // 产出已做完；概率效果已展开。
+                InstantEffect::GiveItem { .. }
+                | InstantEffect::PlaceProp { .. }
+                | InstantEffect::Chance { .. } => {}
             }
         }
         Ok(changes)

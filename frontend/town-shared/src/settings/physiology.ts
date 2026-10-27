@@ -32,16 +32,22 @@ const PHYSIOLOGY_ITEMS: { key: Key; name: string; on: string; off: string }[] = 
     on: '持续低值、受伤、疾病和中毒会损害健康；归零死亡',
     off: '不受损害、不会死亡；受伤、疾病、中毒不新增也不生效',
   },
+  {
+    key: 'weather',
+    name: '天气影响身体',
+    on: '露天淋雨雪额外消耗精力，淋久了会着凉生病；在室内或遮蔽处慢慢变干',
+    off: '雨雪只影响画面和雷暴时的露天活动，不伤身体',
+  },
 ]
 
 const same = (a: PhysiologySwitches, b: PhysiologySwitches) =>
-  PHYSIOLOGY_ITEMS.every(({ key }) => a[key] === b[key])
+  PHYSIOLOGY_ITEMS.every(({ key }) => !!a[key] === !!b[key])
 
 /** 「已关闭：饱腹、水分」这样的摘要 */
 function physiologySummary(s: PhysiologySwitches) {
   const off = PHYSIOLOGY_ITEMS.filter(({ key }) => !s[key]).map(({ name }) => name)
-  if (!off.length) return '四项全部开启'
-  if (off.length === PHYSIOLOGY_ITEMS.length) return '四项全部关闭'
+  if (!off.length) return '全部开启'
+  if (off.length === PHYSIOLOGY_ITEMS.length) return '全部关闭'
   return `已关闭：${off.join('、')}`
 }
 
@@ -109,7 +115,13 @@ function createPhysiologySwitches(
   }
   root.append(note, status)
 
-  let draft: PhysiologySwitches = { fullness: true, energy: true, water: true, health: true }
+  let draft: PhysiologySwitches = {
+    fullness: true,
+    energy: true,
+    water: true,
+    health: true,
+    weather: false,
+  }
   let revision = -1
   let worldId = ''
 
@@ -123,7 +135,7 @@ function createPhysiologySwitches(
     const current = saved()
     const locked = !current || !world.online() || world.saving()
     for (const { item, input, description } of rows) {
-      input.checked = draft[item.key]
+      input.checked = !!draft[item.key]
       input.disabled = locked
       input.closest('.physiology-row')?.classList.toggle('off', !draft[item.key])
       description.textContent = draft[item.key] ? item.on : item.off
@@ -135,7 +147,7 @@ function createPhysiologySwitches(
   }
   function read() {
     const state = world.state()
-    if (state) draft = { ...state.physiology }
+    if (state) draft = { weather: false, ...state.physiology }
     revision = state?.revision ?? -1
     worldId = state?.world_id ?? ''
     render()

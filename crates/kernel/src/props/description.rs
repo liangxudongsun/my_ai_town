@@ -36,77 +36,114 @@ fn effect_texts(a: &Action, s: PhysiologySwitches) -> Vec<String> {
             },
         })
         .collect();
-    for e in &a.on_complete {
-        effects.push(match e {
-            InstantEffect::Restore { need, .. } if !on(*need) => continue,
-            InstantEffect::ApplyCondition { .. } | InstantEffect::CureCondition { .. }
-                if !on(Need::Health) =>
-            {
-                continue
-            }
-            InstantEffect::Restore { need, amount } => {
-                format!("完成时{}恢复 {amount} 点", need.label())
-            }
-            InstantEffect::ApplyCondition {
-                condition,
-                severity,
-            } => format!("完成时施加{}（程度 {severity}）", condition.label()),
-            InstantEffect::CureCondition { condition } => {
-                format!("完成时解除{}，不补回健康", condition.label())
-            }
-            InstantEffect::Revive {
-                values,
-                clear_conditions,
-            } => {
-                let restored: Vec<_> = Need::ALL
-                    .into_iter()
-                    .zip(values)
-                    .filter(|(need, _)| on(*need))
-                    .map(|(need, v)| format!("{} {v}", need.label()))
-                    .collect();
-                let mut text = format!("完成时复活：{}", restored.join("、"));
-                if on(Need::Health) {
-                    text += if *clear_conditions {
-                        "；清除受伤、疾病和中毒"
-                    } else {
-                        "；保留受伤、疾病和中毒"
-                    };
-                }
-                text
-            }
-        });
-    }
+    effects.extend(a.on_complete.iter().filter_map(|e| instant_text(e, s)));
     if a.rest && on(Need::Health) {
         effects.push("有效休息：满足饮食与无损害条件时休养恢复健康".into());
     }
     effects
 }
 
-fn condition_texts(a: &Action) -> Vec<&'static str> {
-    let mut conditions = vec![
+/// 一项完成效果的说明；关掉的生理项不说。
+fn instant_text(e: &InstantEffect, s: PhysiologySwitches) -> Option<String> {
+    let on = |need| enabled(s, need);
+    Some(match e {
+        InstantEffect::Restore { need, .. } if !on(*need) => return None,
+        InstantEffect::ApplyCondition { .. } | InstantEffect::CureCondition { .. }
+            if !on(Need::Health) =>
+        {
+            return None
+        }
+        InstantEffect::Restore { need, amount } => {
+            format!("完成时{}恢复 {amount} 点", need.label())
+        }
+        InstantEffect::ApplyCondition {
+            condition,
+            severity,
+        } => format!("完成时施加{}（程度 {severity}）", condition.label()),
+        InstantEffect::CureCondition { condition } => {
+            format!("完成时解除{}，不补回健康", condition.label())
+        }
+        InstantEffect::Revive {
+            values,
+            clear_conditions,
+        } => {
+            let restored: Vec<_> = Need::ALL
+                .into_iter()
+                .zip(values)
+                .filter(|(need, _)| on(*need))
+                .map(|(need, v)| format!("{} {v}", need.label()))
+                .collect();
+            let mut text = format!("完成时复活：{}", restored.join("、"));
+            if on(Need::Health) {
+                text += if *clear_conditions {
+                    "；清除受伤、疾病和中毒"
+                } else {
+                    "；保留受伤、疾病和中毒"
+                };
+            }
+            text
+        }
+        InstantEffect::GiveItem { item, count } => {
+            format!("完成时得到{}×{count}，放进背包", item.name)
+        }
+        InstantEffect::PlaceProp { prop } => format!("完成时在这里建成「{}」", prop.name),
+        InstantEffect::Chance {
+            percent, effects, ..
+        } => {
+            let inner: Vec<_> = effects
+                .iter()
+                .filter_map(|e| instant_text(e, s))
+                .map(|t| t.trim_start_matches("完成时").to_string())
+                .collect();
+            if inner.is_empty() {
+                return None;
+            }
+            format!("完成时有 {percent}% 可能：{}", inner.join("，"))
+        }
+        // 后续会发生什么由世界决定；只说会有后续，不提前剧透。
+        InstantEffect::Schedule { .. } => "完成后过一段时间可能会有动静".into(),
+        InstantEffect::Depart { text } => format!("完成时离开这里：{text}"),
+    })
+}
+
+fn condition_texts(a: &Action) -> Vec<String> {
+    let mut conditions: Vec<String> = [
         "道具在当前地点或本人背包中",
         "道具未被其他居民占用",
         "完成规定时长",
-    ];
+    ]
+    .map(String::from)
+    .to_vec();
     if a.on_complete
         .iter()
         .any(|e| matches!(e, InstantEffect::Revive { .. }))
     {
-        conditions.push("由存活者对同一地点的死者施用");
+        conditions.push("由存活者对同一地点的死者施用".into());
     } else if a.recipient {
-        conditions.push("可对自己或同一地点的存活者施用");
+        conditions.push("可对自己或同一地点的存活者施用".into());
     }
     for c in &a.conditions {
-        conditions.push(match c {
-            Condition::MealWindow => "在供餐时段开始",
-            Condition::OwnHome => "位于使用者自己的住宅",
-        });
+        conditions.push(
+            match c {
+                Condition::MealWindow => "在供餐时段开始",
+                Condition::OwnHome => "位于使用者自己的住宅",
+            }
+            .into(),
+        );
     }
+    conditions.extend(a.requires.iter().map(super::making::requirement_text));
     conditions
 }
 
 fn result_text(a: &Action) -> &'static str {
+    let makes = a.on_complete.iter().any(|e| {
+        matches!(e, InstantEffect::GiveItem { .. } | InstantEffect::PlaceProp { .. })
+            || matches!(e, InstantEffect::Chance { effects, .. } if effects.iter().any(|x| matches!(x, InstantEffect::GiveItem { .. } | InstantEffect::PlaceProp { .. })))
+    });
     match a.completion {
+        Completion::Activity | Completion::Sleep if makes => {
+            "记录实际进行的活动；按完成效果产出物品或道具"
+        }
         Completion::Activity | Completion::Sleep => "记录实际进行的活动；没有额外物品产出",
         Completion::Meal => "记录餐次与菜单",
         Completion::ReadBook => "完成后可访问这本书的正文；记忆由本人决定",
@@ -124,7 +161,7 @@ pub fn action_description(a: &Action) -> PropActionView {
 /// 按世界生理开关过滤效果的说明（村民观察与游戏界面用）。
 pub fn action_description_for(a: &Action, s: PhysiologySwitches) -> PropActionView {
     PropActionView {
-        conditions: condition_texts(a).into_iter().map(String::from).collect(),
+        conditions: condition_texts(a),
         consumes_item: a.consumes_item,
         effects: effect_texts(a, s),
         id: a.id.clone(),

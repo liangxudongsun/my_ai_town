@@ -405,6 +405,8 @@ export interface TemplateFields {
   personality: string
   speech: string
   background: string
+  /** 开局处境：来到这里时真实身处的情况，按已经发生的事写给模型；旧模板没有 */
+  situation?: string
   drives: string
   interests: string
   occupation: string
@@ -570,6 +572,8 @@ export interface PhysiologySwitches {
   energy: boolean
   water: boolean
   health: boolean
+  /** 天气影响身体：露天淋雨雪额外消耗精力，淋久了生病；旧存档没有，按关闭 */
+  weather?: boolean
 }
 export interface WorldSettingsState {
   world_id: string

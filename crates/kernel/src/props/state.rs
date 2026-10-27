@@ -68,6 +68,11 @@ impl Props {
         remaining
     }
 
+    /// 直接设定补给余量（天亮补回）。
+    pub(crate) fn set_supply(&mut self, prop: &str, action: &str, remaining: u32) {
+        self.supplies.insert(supply_key(prop, action), remaining);
+    }
+
     /// 仍存在、未撤下的道具。
     pub(crate) fn item<'a>(&self, topo: &'a Topology, id: &str) -> Result<&'a Prop> {
         topo.prop(id)

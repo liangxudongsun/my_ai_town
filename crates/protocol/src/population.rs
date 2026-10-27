@@ -273,6 +273,9 @@ pub struct TemplateFields {
     pub speech: String,
     #[serde(default)]
     pub background: String,
+    /// 开局处境：村民来到这里时真实身处的情况（比如醒来在荒岛上），按已经发生的事写给模型。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub situation: String,
     #[serde(default)]
     pub drives: String,
     #[serde(default)]

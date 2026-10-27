@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// 当前写出的存档版本。1：无身体字段；2：加身体；3：加背包；4：加玩家化身与附身；5：加天气。
+/// 之后只追加带默认值的字段（道具动作的后续、淋湿进度、天气影响身体开关），旧档照常读入，不升版本。
 const SCHEMA_VERSION: u32 = 5;
 
 /// `World::checkpoint` 的回滚点。
@@ -60,6 +61,9 @@ pub struct WorldSnapshot {
     /// 旧存档没有这一项，按全部开启读入。
     #[serde(default)]
     physiology: protocol::PhysiologySwitches,
+    /// 旧存档没有这一项：没有待发生的事，随机流从固定起点开始。
+    #[serde(default)]
+    happenings: crate::happenings::Happenings,
 }
 
 impl World {
@@ -90,6 +94,7 @@ impl World {
             placed_props: self.props.placed.clone(),
             supplies: self.props.supplies.clone(),
             physiology: self.physiology,
+            happenings: self.happenings.clone(),
         }
     }
 
@@ -128,6 +133,7 @@ impl World {
         candidate.actors = snapshot.actors;
         candidate.interactions = crate::interactions::Interactions::restore(snapshot.interactions);
         candidate.contents = snapshot.contents;
+        candidate.happenings = snapshot.happenings;
         candidate.props.removed = snapshot.removed_props;
         candidate.inventory.revision = self.inventory.revision;
         candidate.events.clear();
@@ -325,6 +331,7 @@ impl WorldSnapshot {
             self.schema_version < 3 || self.inventory.is_some(),
             KernelError::snapshot("新存档缺少背包状态")
         );
+        self.happenings.validate()?;
         ensure!(
             self.minutes.is_finite() && self.minutes >= 0.0,
             KernelError::snapshot("存档的世界时间无效")

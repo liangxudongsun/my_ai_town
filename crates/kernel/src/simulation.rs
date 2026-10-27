@@ -38,7 +38,8 @@ impl World {
                         .as_ref()
                         .map_or(f64::INFINITY, |w| w.boundary(t0)),
                 )
-                .min(physiology::next_boundary(&self.actors, &rates));
+                .min(physiology::next_boundary(&self.actors, &rates))
+                .min(self.happenings_boundary());
             let completed = self.advance_activities(&ids, t0, step);
             self.minutes = t0 + step;
             self.advance_needs(step, rates);
@@ -56,6 +57,7 @@ impl World {
                     self.complete_current(&id, self.minutes);
                 }
             }
+            self.fire_happenings();
             self.day_boundary(t0, &ids);
             self.expire_interactions();
         }
@@ -160,7 +162,7 @@ impl World {
             .fold(crate::DAY - tod, f64::min)
     }
 
-    /// 天亮：把昨天的流水归档进日志。
+    /// 天亮：把昨天的流水归档进日志，按道具定义补回补给。
     fn day_boundary(&mut self, before: f64, ids: &[String]) {
         if is_daylight(before) || !is_daylight(self.minutes) {
             return;
@@ -169,6 +171,7 @@ impl World {
         for id in ids {
             self.actor_mut(id).journal.roll_day(day - 1);
         }
+        self.restock_supplies();
     }
 
     /// 活动自然完成：写执行记录、更新位置、从队列取下一项。

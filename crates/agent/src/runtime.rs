@@ -679,7 +679,11 @@ impl ResidentRuntime {
             let Some(a) = world.actor(&s.actor_id) else {
                 continue;
             };
-            if a.needs.body.dead || a.needs.incapacitated() || a.possession.is_some() {
+            if !a.present()
+                || a.needs.body.dead
+                || a.needs.incapacitated()
+                || a.possession.is_some()
+            {
                 continue;
             }
             if s.waiting_for_model() {
@@ -823,6 +827,7 @@ fn wants_request(world: &World, s: &Session) -> bool {
     let responding =
         world.interactions().has_talk_invitation(&s.actor_id) && world.talk_available(&s.actor_id);
     a.actions.agent_controlled
+        && a.present()
         && a.possession.is_none()
         && !a.needs.incapacitated()
         && ((a.current.action.is_none() && idle) || responding)

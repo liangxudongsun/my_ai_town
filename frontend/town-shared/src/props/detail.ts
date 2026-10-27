@@ -45,8 +45,15 @@ function effectSentence(a: Action, needLabel: (n: BodyNeed) => string) {
     else if (e.kind === 'cure_condition') parts.push([`解除${conditionLabel[e.condition]}`])
     else if (e.kind === 'apply_condition')
       parts.push([el('b', `会造成${conditionLabel[e.condition]}`, 'bad'), `（程度 ${e.severity}）`])
+    else if (e.kind === 'give_item') parts.push(['得到 ', el('b', `${e.item.name}×${e.count}`)])
+    else if (e.kind === 'place_prop') parts.push(['在原地建成 ', el('b', e.prop.name)])
+    else if (e.kind === 'chance') parts.push([el('b', `${e.percent}%`), ' 的可能有收获'])
+    else if (e.kind === 'schedule') parts.push(['过一阵会有动静'])
+    else if (e.kind === 'depart') parts.push([el('b', '离开这里')])
     else parts.push(['可以让人复活'])
   }
+  for (const r of a.requires ?? [])
+    parts.push(['要带着 ', el('b', `${r.name}×${r.count}`), r.consume ? '（会用掉）' : ''])
   if (a.rest) parts.push(['算作有效休息'])
   if (a.consumes_item) parts.push(['用完就没了'])
   if (!parts.length) return null

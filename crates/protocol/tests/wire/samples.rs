@@ -237,6 +237,7 @@ fn template() -> ResidentTemplate {
             personality: "沉稳".into(),
             speech: "话少".into(),
             background: "在镇上长大".into(),
+            situation: String::new(),
             drives: "把手艺做好".into(),
             interests: "读书".into(),
             occupation: "木工".into(),

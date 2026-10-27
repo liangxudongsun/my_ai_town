@@ -8,6 +8,24 @@ export type InstantEffect =
   | { kind: 'apply_condition'; condition: ConditionKind; severity: number }
   | { kind: 'cure_condition'; condition: ConditionKind }
   | { kind: 'revive'; values: [number, number, number, number]; clear_conditions: boolean }
+  | { kind: 'give_item'; item: Definition; count: number }
+  | { kind: 'place_prop'; prop: Definition }
+  | { kind: 'chance'; percent: number; effects: InstantEffect[]; miss?: string }
+  | {
+      kind: 'schedule'
+      key: string
+      after_minutes: number
+      text: string
+      place?: { locale?: string; prop: Definition; lasts_minutes?: number; leave_text?: string }
+    }
+  | { kind: 'depart'; text: string }
+/** 动作的物品前提：开始和完成时随身要带够；consume 的完成时用掉 */
+export interface Requirement {
+  item: string
+  name: string
+  count: number
+  consume?: boolean
+}
 export type Effect =
   | { kind: 'restore_need'; need: BodyNeed; per_minute: number; pause_decay: boolean }
   | { kind: 'labor' }
@@ -23,11 +41,12 @@ export interface Action {
   id: string
   label: string
   duration_minutes: number
+  requires?: Requirement[]
   during: Effect[]
   completion: Completion
   conditions: ActionCondition[]
   on_complete?: InstantEffect[]
-  supply?: { initial: number; cost: number }
+  supply?: { initial: number; cost: number; restock?: { amount: number; max: number } }
   recipient?: boolean
   rest?: boolean
 }
@@ -43,6 +62,8 @@ export interface Definition {
   actions: Action[]
   readable?: ContentText
   bulletin_board: boolean
+  /** 遮蔽处：在上面做事按室内算 */
+  shelter?: boolean
 }
 export interface Instance {
   id: string

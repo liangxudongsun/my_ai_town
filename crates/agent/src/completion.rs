@@ -299,6 +299,7 @@ pub fn parse_template(text: &str) -> Result<TemplateFields, ModelError> {
         personality: string("personality"),
         speech: string("speech"),
         background: string("background"),
+        situation: String::new(),
         drives: string("drives"),
         interests: string("interests"),
         occupation: string("occupation"),

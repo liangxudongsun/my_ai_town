@@ -251,6 +251,7 @@ pub fn book_placement(
         actions: vec![Action {
             consumes_item: false,
             portion_name: None,
+            requires: vec![],
             id: "read".into(),
             label: if bulletin { "阅读公告" } else { "阅读" }.into(),
             duration_minutes: READ_MINUTES,
@@ -268,6 +269,7 @@ pub fn book_placement(
         }],
         readable: Some(content),
         bulletin_board: false,
+        shelter: false,
     };
     Placement {
         instance: Instance {

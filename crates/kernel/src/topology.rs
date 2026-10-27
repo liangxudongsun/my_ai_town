@@ -105,6 +105,9 @@ pub struct Prop {
     pub readable: Option<crate::content::Text>,
     #[serde(default)]
     pub bulletin_board: bool,
+    /// 遮蔽处（道具定义的 shelter）：在上面做事按室内算。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shelter: bool,
     #[serde(default)]
     pub withdrawn: bool,
     pub id: String,

@@ -377,13 +377,21 @@ pub fn render_persona(f: &TemplateFields) -> String {
     if !f.speech.trim().is_empty() {
         out.push_str(&format!("说话方式：{}\n", f.speech.trim()));
     }
+    let situation = f.situation.trim();
     if !f.background.trim().is_empty() {
         out.push_str(&format!(
-            concat!(
-                "\n## 背景\n{}\n\n以上是来到小镇之前的自述设定，不是小镇里发生过的事。",
-                "这是本人来到小镇的第一天，具体日期以入村记录为准。\n"
-            ),
-            f.background.trim()
+            "\n## 背景\n{}\n\n以上是来到小镇之前的自述设定，不是小镇里发生过的事。{}\n",
+            f.background.trim(),
+            if situation.is_empty() {
+                "这是本人来到小镇的第一天，具体日期以入村记录为准。"
+            } else {
+                ""
+            }
+        ));
+    }
+    if !situation.is_empty() {
+        out.push_str(&format!(
+            "\n## 开局处境\n{situation}\n\n这是本人此刻真实的处境，已经发生，不是自述或想象。\n"
         ));
     }
     if !f.drives.trim().is_empty() || !f.interests.trim().is_empty() {
@@ -449,6 +457,7 @@ pub fn mock_generated(brief: &str, taken_names: &[String]) -> Result<TemplateFie
         personality: format!("按描述行事：{brief}"),
         speech: "平和。".into(),
         background: "离线生成的占位背景，没有连接模型。".into(),
+        situation: String::new(),
         drives: "过好每一天。".into(),
         interests: brief.to_string(),
         occupation: String::new(),

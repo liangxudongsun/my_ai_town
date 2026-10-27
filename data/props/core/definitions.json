@@ -1922,5 +1922,770 @@
     "name": "自行车",
     "description": "",
     "actions": []
+  },
+  {
+    "id": "core:island-wood",
+    "version": 1,
+    "name": "木头",
+    "description": "海边捡来的干木头，可以搭东西、生火。",
+    "actions": [],
+    "portable": true,
+    "stack_limit": 5
+  },
+  {
+    "id": "core:island-leaves",
+    "version": 1,
+    "name": "棕榈叶",
+    "description": "宽大的棕榈叶，可以铺顶、接雨水。",
+    "actions": [],
+    "portable": true,
+    "stack_limit": 5
+  },
+  {
+    "id": "core:island-flint",
+    "version": 1,
+    "name": "打火石",
+    "description": "一块能敲出火星的燧石，点火要用。",
+    "actions": [],
+    "portable": true
+  },
+  {
+    "id": "core:island-can",
+    "version": 1,
+    "name": "旧罐头",
+    "description": "锈迹斑斑的罐头，不知道放了多久。",
+    "actions": [
+      {
+        "id": "eat",
+        "label": "吃旧罐头",
+        "duration_minutes": 10,
+        "completion": "activity",
+        "consumes_item": true,
+        "on_complete": [
+          {
+            "kind": "restore",
+            "need": "fullness",
+            "amount": 40.0
+          }
+        ]
+      }
+    ],
+    "portable": true,
+    "stack_limit": 5
+  },
+  {
+    "id": "core:island-driftwood",
+    "version": 1,
+    "name": "漂流木堆",
+    "description": "海浪冲上岸的木头。每天天亮潮水会再冲上来一些。",
+    "actions": [
+      {
+        "id": "gather",
+        "label": "捡木头",
+        "duration_minutes": 20,
+        "completion": "activity",
+        "supply": {
+          "initial": 4,
+          "cost": 1,
+          "restock": {
+            "amount": 2,
+            "max": 6
+          }
+        },
+        "on_complete": [
+          {
+            "kind": "give_item",
+            "item": {
+              "id": "core:island-wood",
+              "version": 1,
+              "name": "木头",
+              "description": "海边捡来的干木头，可以搭东西、生火。",
+              "actions": [],
+              "portable": true,
+              "stack_limit": 5
+            },
+            "count": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-palms",
+    "version": 1,
+    "name": "棕榈树",
+    "description": "几棵歪脖子棕榈树，叶子和椰子都有限。",
+    "actions": [
+      {
+        "id": "leaves",
+        "label": "采棕榈叶",
+        "duration_minutes": 15,
+        "completion": "activity",
+        "supply": {
+          "initial": 6,
+          "cost": 1,
+          "restock": {
+            "amount": 2,
+            "max": 6
+          }
+        },
+        "on_complete": [
+          {
+            "kind": "give_item",
+            "item": {
+              "id": "core:island-leaves",
+              "version": 1,
+              "name": "棕榈叶",
+              "description": "宽大的棕榈叶，可以铺顶、接雨水。",
+              "actions": [],
+              "portable": true,
+              "stack_limit": 5
+            },
+            "count": 2
+          }
+        ]
+      },
+      {
+        "id": "coconut",
+        "label": "吃椰子",
+        "duration_minutes": 10,
+        "completion": "activity",
+        "portion_name": "一个椰子",
+        "supply": {
+          "initial": 4,
+          "cost": 1,
+          "restock": {
+            "amount": 1,
+            "max": 4
+          }
+        },
+        "on_complete": [
+          {
+            "kind": "restore",
+            "need": "fullness",
+            "amount": 15.0
+          },
+          {
+            "kind": "restore",
+            "need": "water",
+            "amount": 15.0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-tidepool",
+    "version": 1,
+    "name": "礁石潮池",
+    "description": "退潮后礁石间留下的水坑，有时能摸到小鱼小蟹，有时什么也没有。",
+    "actions": [
+      {
+        "id": "fish",
+        "label": "在潮池摸鱼",
+        "duration_minutes": 40,
+        "completion": "activity",
+        "supply": {
+          "initial": 3,
+          "cost": 1,
+          "restock": {
+            "amount": 3,
+            "max": 3
+          }
+        },
+        "on_complete": [
+          {
+            "kind": "chance",
+            "percent": 50,
+            "effects": [
+              {
+                "kind": "restore",
+                "need": "fullness",
+                "amount": 30.0
+              }
+            ],
+            "miss": "摸了半天，鱼都溜走了，什么也没吃到"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-water-jars",
+    "version": 1,
+    "name": "残存淡水罐",
+    "description": "几个封着口的陶罐，里面是干净的淡水，喝一点少一点。",
+    "actions": [
+      {
+        "id": "drink",
+        "label": "喝罐里的淡水",
+        "duration_minutes": 3,
+        "completion": "activity",
+        "supply": {
+          "initial": 6,
+          "cost": 1
+        },
+        "on_complete": [
+          {
+            "kind": "restore",
+            "need": "water",
+            "amount": 35.0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-puddle",
+    "version": 1,
+    "name": "积水洼",
+    "description": "下过雨留下的浑水，看着不太干净。",
+    "actions": [
+      {
+        "id": "drink",
+        "label": "喝积水",
+        "duration_minutes": 3,
+        "completion": "activity",
+        "supply": {
+          "initial": 6,
+          "cost": 1,
+          "restock": {
+            "amount": 2,
+            "max": 6
+          }
+        },
+        "on_complete": [
+          {
+            "kind": "restore",
+            "need": "water",
+            "amount": 20.0
+          },
+          {
+            "kind": "apply_condition",
+            "condition": "illness",
+            "severity": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-rubble",
+    "version": 1,
+    "name": "废墟碎石堆",
+    "description": "倒塌的石屋留下的碎石，下面也许埋着东西。",
+    "actions": [
+      {
+        "id": "search",
+        "label": "翻找碎石",
+        "duration_minutes": 30,
+        "completion": "activity",
+        "during": [],
+        "supply": {
+          "initial": 6,
+          "cost": 1
+        },
+        "on_complete": [
+          {
+            "kind": "chance",
+            "percent": 35,
+            "effects": [
+              {
+                "kind": "give_item",
+                "item": {
+                  "id": "core:island-flint",
+                  "version": 1,
+                  "name": "打火石",
+                  "description": "一块能敲出火星的燧石，点火要用。",
+                  "actions": [],
+                  "portable": true
+                },
+                "count": 1
+              }
+            ],
+            "miss": "翻了一阵，只有碎石和贝壳"
+          },
+          {
+            "kind": "chance",
+            "percent": 25,
+            "effects": [
+              {
+                "kind": "give_item",
+                "item": {
+                  "id": "core:island-can",
+                  "version": 1,
+                  "name": "旧罐头",
+                  "description": "锈迹斑斑的罐头，不知道放了多久。",
+                  "actions": [
+                    {
+                      "id": "eat",
+                      "label": "吃旧罐头",
+                      "duration_minutes": 10,
+                      "completion": "activity",
+                      "consumes_item": true,
+                      "on_complete": [
+                        {
+                          "kind": "restore",
+                          "need": "fullness",
+                          "amount": 40.0
+                        }
+                      ]
+                    }
+                  ],
+                  "portable": true,
+                  "stack_limit": 5
+                },
+                "count": 1
+              }
+            ],
+            "miss": "没找到能吃的东西"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-campsite",
+    "version": 1,
+    "name": "营地空地",
+    "description": "背风的一块平地，可以在这里搭东西。也能直接躺在沙地上睡，只是挡不了雨。",
+    "actions": [
+      {
+        "id": "build-shelter",
+        "label": "搭棚子",
+        "duration_minutes": 90,
+        "completion": "activity",
+        "during": [
+          {
+            "kind": "labor"
+          }
+        ],
+        "requires": [
+          {
+            "item": "core:island-wood",
+            "name": "木头",
+            "count": 3,
+            "consume": true
+          },
+          {
+            "item": "core:island-leaves",
+            "name": "棕榈叶",
+            "count": 4,
+            "consume": true
+          }
+        ],
+        "on_complete": [
+          {
+            "kind": "place_prop",
+            "prop": {
+              "id": "core:island-shelter",
+              "version": 1,
+              "name": "棚子",
+              "description": "用木头和棕榈叶搭的棚子，能挡雨。待在里面不会淋湿。",
+              "shelter": true,
+              "actions": [
+                {
+                  "id": "hide",
+                  "label": "在棚子里避雨",
+                  "duration_minutes": 30,
+                  "completion": "activity",
+                  "rest": true,
+                  "during": [
+                    {
+                      "kind": "restore_need",
+                      "need": "energy",
+                      "per_minute": 0.05,
+                      "pause_decay": true
+                    }
+                  ]
+                },
+                {
+                  "id": "sleep",
+                  "label": "在棚子里睡觉",
+                  "duration_minutes": 480,
+                  "completion": "sleep",
+                  "rest": true,
+                  "during": [
+                    {
+                      "kind": "restore_need",
+                      "need": "energy",
+                      "per_minute": 0.15625,
+                      "pause_decay": true
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "build-catcher",
+        "label": "做雨水收集器",
+        "duration_minutes": 45,
+        "completion": "activity",
+        "during": [
+          {
+            "kind": "labor"
+          }
+        ],
+        "requires": [
+          {
+            "item": "core:island-wood",
+            "name": "木头",
+            "count": 1,
+            "consume": true
+          },
+          {
+            "item": "core:island-leaves",
+            "name": "棕榈叶",
+            "count": 3,
+            "consume": true
+          }
+        ],
+        "on_complete": [
+          {
+            "kind": "place_prop",
+            "prop": {
+              "id": "core:island-rain-catcher",
+              "version": 1,
+              "name": "雨水收集器",
+              "description": "棕榈叶围成的漏斗接在木架上，每天能攒下一点干净的雨水。",
+              "actions": [
+                {
+                  "id": "drink",
+                  "label": "喝收集的雨水",
+                  "duration_minutes": 3,
+                  "completion": "activity",
+                  "supply": {
+                    "initial": 1,
+                    "cost": 1,
+                    "restock": {
+                      "amount": 2,
+                      "max": 4
+                    }
+                  },
+                  "on_complete": [
+                    {
+                      "kind": "restore",
+                      "need": "water",
+                      "amount": 35.0
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "sleep",
+        "label": "在沙地上睡觉",
+        "duration_minutes": 480,
+        "completion": "sleep",
+        "rest": true,
+        "during": [
+          {
+            "kind": "restore_need",
+            "need": "energy",
+            "per_minute": 0.12,
+            "pause_decay": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-dock-post",
+    "version": 1,
+    "name": "破码头木桩",
+    "description": "伸进海里的旧码头，只剩几根木桩。船要靠岸只能停在这里。",
+    "actions": [
+      {
+        "id": "build-pyre",
+        "label": "堆求救篝火",
+        "duration_minutes": 60,
+        "completion": "activity",
+        "during": [
+          {
+            "kind": "labor"
+          }
+        ],
+        "requires": [
+          {
+            "item": "core:island-wood",
+            "name": "木头",
+            "count": 4,
+            "consume": true
+          }
+        ],
+        "on_complete": [
+          {
+            "kind": "place_prop",
+            "prop": {
+              "id": "core:island-signal-pyre",
+              "version": 1,
+              "name": "求救篝火堆",
+              "description": "码头边堆起的一大堆木头。点燃后浓烟很远就能看见。",
+              "actions": [
+                {
+                  "id": "light",
+                  "label": "点燃求救篝火",
+                  "duration_minutes": 15,
+                  "completion": "activity",
+                  "requires": [
+                    {
+                      "item": "core:island-flint",
+                      "name": "打火石",
+                      "count": 1,
+                      "consume": true
+                    }
+                  ],
+                  "supply": {
+                    "initial": 1,
+                    "cost": 1
+                  },
+                  "on_complete": [
+                    {
+                      "kind": "schedule",
+                      "key": "rescue-boat",
+                      "after_minutes": 720.0,
+                      "text": "远处海面上出现了一艘小船，正朝着冒烟的码头开过来！",
+                      "place": {
+                        "prop": {
+                          "id": "core:island-rescue-boat",
+                          "version": 1,
+                          "name": "救援小船",
+                          "description": "看见信号开过来的小船，船上的人在招手。不会一直等着。",
+                          "actions": [
+                            {
+                              "id": "board",
+                              "label": "登船离开",
+                              "duration_minutes": 10,
+                              "completion": "activity",
+                              "on_complete": [
+                                {
+                                  "kind": "depart",
+                                  "text": "登上小船，离开了荒岛"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "lasts_minutes": 240.0,
+                        "leave_text": "小船在码头等了很久，没等到人，掉头开走了。"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "watch",
+        "label": "眺望海面",
+        "duration_minutes": 30,
+        "completion": "activity"
+      }
+    ]
+  },
+  {
+    "id": "core:island-keeper-diary",
+    "version": 1,
+    "name": "守塔人日记",
+    "description": "灯塔里一本受潮的本子，字迹潦草。",
+    "readable": {
+      "work_id": "k-island-keeper",
+      "version": 1,
+      "kind": "book",
+      "title": "守塔人日记",
+      "author": "守塔人",
+      "text": "第一天：船坏了，我游上了这座岛。码头还在，灯塔没有灯。\n第六天：雨水比海水金贵。积水洼的水喝了会拉肚子，别碰。\n第十二天：在废墟里翻到了打火石。只要木头够多，码头那边点一堆大火，路过的船就能看见。\n第十九天：木头总是不够。每天早上去海边，潮水会冲上来一点。\n第二十三天：今天看见了",
+      "origin": {
+        "kind": "builtin"
+      }
+    },
+    "actions": [
+      {
+        "id": "read",
+        "label": "阅读",
+        "duration_minutes": 30,
+        "completion": "read_book"
+      }
+    ]
+  },
+  {
+    "id": "core:island-bottle",
+    "version": 1,
+    "name": "漂流瓶",
+    "description": "被冲上岸的玻璃瓶，里面塞着一张纸。",
+    "portable": true,
+    "readable": {
+      "work_id": "k-island-bottle",
+      "version": 1,
+      "kind": "book",
+      "title": "瓶中信",
+      "author": "上一个住在岛上的人",
+      "text": "如果你读到这张纸，说明你也被困在这里了。别急着绝望。灯塔里有我留下的东西。——上一个住在岛上的人",
+      "origin": {
+        "kind": "builtin"
+      }
+    },
+    "actions": [
+      {
+        "id": "read",
+        "label": "阅读",
+        "duration_minutes": 10,
+        "completion": "read_book"
+      }
+    ]
+  },
+  {
+    "id": "core:island-signal-pyre",
+    "version": 1,
+    "name": "求救篝火堆",
+    "description": "码头边堆起的一大堆木头。点燃后浓烟很远就能看见。",
+    "actions": [
+      {
+        "id": "light",
+        "label": "点燃求救篝火",
+        "duration_minutes": 15,
+        "completion": "activity",
+        "requires": [
+          {
+            "item": "core:island-flint",
+            "name": "打火石",
+            "count": 1,
+            "consume": true
+          }
+        ],
+        "supply": {
+          "initial": 1,
+          "cost": 1
+        },
+        "on_complete": [
+          {
+            "kind": "schedule",
+            "key": "rescue-boat",
+            "after_minutes": 720.0,
+            "text": "远处海面上出现了一艘小船，正朝着冒烟的码头开过来！",
+            "place": {
+              "prop": {
+                "id": "core:island-rescue-boat",
+                "version": 1,
+                "name": "救援小船",
+                "description": "看见信号开过来的小船，船上的人在招手。不会一直等着。",
+                "actions": [
+                  {
+                    "id": "board",
+                    "label": "登船离开",
+                    "duration_minutes": 10,
+                    "completion": "activity",
+                    "on_complete": [
+                      {
+                        "kind": "depart",
+                        "text": "登上小船，离开了荒岛"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "lasts_minutes": 240.0,
+              "leave_text": "小船在码头等了很久，没等到人，掉头开走了。"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-shelter",
+    "version": 1,
+    "name": "棚子",
+    "description": "用木头和棕榈叶搭的棚子，能挡雨。待在里面不会淋湿。",
+    "shelter": true,
+    "actions": [
+      {
+        "id": "hide",
+        "label": "在棚子里避雨",
+        "duration_minutes": 30,
+        "completion": "activity",
+        "rest": true,
+        "during": [
+          {
+            "kind": "restore_need",
+            "need": "energy",
+            "per_minute": 0.05,
+            "pause_decay": true
+          }
+        ]
+      },
+      {
+        "id": "sleep",
+        "label": "在棚子里睡觉",
+        "duration_minutes": 480,
+        "completion": "sleep",
+        "rest": true,
+        "during": [
+          {
+            "kind": "restore_need",
+            "need": "energy",
+            "per_minute": 0.15625,
+            "pause_decay": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-rain-catcher",
+    "version": 1,
+    "name": "雨水收集器",
+    "description": "棕榈叶围成的漏斗接在木架上，每天能攒下一点干净的雨水。",
+    "actions": [
+      {
+        "id": "drink",
+        "label": "喝收集的雨水",
+        "duration_minutes": 3,
+        "completion": "activity",
+        "supply": {
+          "initial": 1,
+          "cost": 1,
+          "restock": {
+            "amount": 2,
+            "max": 4
+          }
+        },
+        "on_complete": [
+          {
+            "kind": "restore",
+            "need": "water",
+            "amount": 35.0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:island-rescue-boat",
+    "version": 1,
+    "name": "救援小船",
+    "description": "看见信号开过来的小船，船上的人在招手。不会一直等着。",
+    "actions": [
+      {
+        "id": "board",
+        "label": "登船离开",
+        "duration_minutes": 10,
+        "completion": "activity",
+        "on_complete": [
+          {
+            "kind": "depart",
+            "text": "登上小船，离开了荒岛"
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -15,6 +15,7 @@ export const EMPTY_FIELDS: TemplateFields = {
   personality: '',
   speech: '',
   background: '',
+  situation: '',
   drives: '',
   interests: '',
   occupation: '',
@@ -61,6 +62,15 @@ const TEXT_FIELDS: TextField[] = [
     kind: 'textarea',
     placeholder: '入村前的自述设定，不写其他村民的私事',
     rows: 4,
+    wide: true,
+  },
+  {
+    key: 'situation',
+    label: '开局处境',
+    kind: 'textarea',
+    placeholder:
+      '可选。来到这里时真实身处的情况，比如“今早醒来躺在陌生的沙滩上，不知道怎么来的”；会作为已经发生的事告诉村民',
+    rows: 3,
     wide: true,
   },
   {
@@ -136,6 +146,8 @@ export function caption(text: string) {
 /** 人设里写给模型的固定说明（host 的 library.rs 生成人设时加的）：玩家不用看 */
 const MODEL_NOTES = [
   '以上是来到小镇之前的自述设定，不是小镇里发生过的事。这是本人来到小镇的第一天，具体日期以入村记录为准。',
+  '以上是来到小镇之前的自述设定，不是小镇里发生过的事。',
+  '这是本人此刻真实的处境，已经发生，不是自述或想象。',
   '这只是背景，不自动拥有资源、职位、收入或专属权限。',
 ]
 export function personaForPlayer(text: string) {
@@ -207,6 +219,7 @@ export function templateForm(initial: TemplateFields, onInput: () => void, place
     personality: read('personality'),
     speech: read('speech'),
     background: read('background'),
+    situation: read('situation'),
     drives: read('drives'),
     interests: read('interests'),
     occupation: read('occupation'),
@@ -220,7 +233,7 @@ export function templateForm(initial: TemplateFields, onInput: () => void, place
   /** 模型生成的字段填进来；没挑长相时保留现在的。发 input 让各栏的词跟着按下或抬起 */
   const fill = (f: TemplateFields) => {
     for (const [key, control] of controls) {
-      control.value = f[key]
+      control.value = f[key] ?? ''
       control.dispatchEvent(new Event('input'))
     }
     tags.set(f.tags)

@@ -5,6 +5,7 @@ mod agent_actions;
 mod avatar;
 mod interactions;
 mod inventory;
+mod island;
 mod physiology;
 mod precise_navigation;
 mod props;

@@ -33,6 +33,7 @@ pub mod calendar;
 pub mod content;
 pub mod error;
 mod execution;
+pub mod happenings;
 pub mod intent;
 pub mod interactions;
 pub mod inventory;

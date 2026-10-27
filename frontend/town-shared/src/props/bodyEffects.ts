@@ -83,6 +83,10 @@ export function bodyEffects(container: HTMLElement, action: Action) {
             clear_conditions: clear.checked,
           }
         }
+      } else if (effect.kind !== 'apply_condition' && effect.kind !== 'cure_condition') {
+        // 产出物品、搭建、概率、定时事件和离开在道具数据里写，编辑器原样保留
+        row.append(el('p', '这项效果在道具数据里编辑，这里原样保留', 'dim'))
+        read = () => effect
       } else {
         const condition = select(conditions, effect.condition, 'instant-condition')
         row.append(field('身体状况', condition))
