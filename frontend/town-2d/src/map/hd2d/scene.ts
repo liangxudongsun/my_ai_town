@@ -44,7 +44,6 @@ import { gradeShader, SceneDepthPass, TILT_FOCUS, tiltShader } from './post'
 import { landmarkSprites } from './landmarks'
 import { outerMaterial } from './sea'
 import { Horizon } from './horizon'
-import { RiverAtmosphere } from './riverAtmosphere'
 import { RiverArt } from './riverArt'
 import { ChimneySmoke } from './smoke'
 import { interior, interiorTop, keepInside } from './interior'
@@ -186,7 +185,6 @@ export class HdScene {
   /** 海面动画的时间（秒） */
   private readonly seaTime: { value: number }
   private readonly horizon: Horizon
-  private readonly riverAtmosphere: RiverAtmosphere
   private readonly riverArt: RiverArt
   private readonly observers: { disconnect(): void }[] = []
   private readonly reduceMotion = matchMedia('(prefers-reduced-motion: reduce)')
@@ -231,7 +229,6 @@ export class HdScene {
       theme.islet
     )
     this.upright.push((t) => this.horizon.setTilt(t))
-    this.riverAtmosphere = new RiverAtmosphere(this.scene, ground, this.horizon.haze)
     this.riverArt = new RiverArt(this.scene, ground, () => {
       this.onDecorationChange?.()
       this.request()
@@ -1213,7 +1210,6 @@ export class HdScene {
       night = 1 - smooth(-0.12, 0.1, e)
     const { cloud, overcast, flash } = this.weather
     this.day = day
-    this.riverAtmosphere.setLight(day)
     const golden = Math.max(0, 1 - Math.abs(e - 0.12) / 0.3) * day * (1 - cloud)
     // 太阳在南边（镜头这一侧）偏高处：朝镜头的南墙受光，影子往北落在房子后面；
     // 中午最偏南，早晚偏东西、斜照南墙
@@ -1347,7 +1343,6 @@ export class HdScene {
     this.pitchControl?.remove()
     this.villagers.dispose()
     this.riverArt.dispose()
-    this.riverAtmosphere.dispose()
     for (const o of this.observers) o.disconnect()
     this.scene.traverse((o) => {
       // 灯连同阴影贴图（太阳的是 4096×4096）一起释放
