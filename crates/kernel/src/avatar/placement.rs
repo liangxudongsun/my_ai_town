@@ -1,5 +1,6 @@
 //! 默认二维地图的运行时道具位置。已有布局只迁入一次，随后与世界共同保存。
 use super::*;
+use protocol::PlaceNear;
 
 /// 矩形区域里每边取几个候选点（等分成多一份，边上不放）。
 const RECT_CANDIDATES: u32 = 12;
@@ -11,14 +12,16 @@ const KEEP_AWAY: f64 = 1.;
 const MIN_SPACING: f64 = 0.8;
 
 impl WalkMap {
-    /// 在处所的区域里给新道具找位置：不挡路、不贴门口和人，离已有道具至少 MIN_SPACING，
-    /// 并且离它们尽量远。`occupied` 是已有道具的位置，`people` 是人物的位置。
+    /// 在处所的区域里给新道具找位置：不挡路、不贴门口和人，离已有道具至少 MIN_SPACING；
+    /// 玩家点了同一空间里的位置就取离它最近的，否则离已有道具尽量远。
+    /// `occupied` 是已有道具的位置，`people` 是人物的位置。
     fn plan_prop_spot<'s>(
         &'s self,
         locale: &str,
         occupied: impl Iterator<Item = &'s Spot>,
         people: &[Spot],
         obstacles: &[Obstacle],
+        near: Option<&PlaceNear>,
     ) -> Option<Spot> {
         let surface = self.surfaces.iter().find(|s| s.locale == locale)?;
         let space = &surface.space;
@@ -30,27 +33,30 @@ impl WalkMap {
             .collect();
         let doors: Vec<_> = self.portals.iter().map(|d| &d.from).collect();
         let people: Vec<_> = people.iter().collect();
-        let near = |spots: &[&Spot], p: Point| {
+        let beside = |spots: &[&Spot], p: Point| {
             spots
                 .iter()
                 .any(|s| s.space == *space && distance(s.position, p) < KEEP_AWAY)
         };
-        let mut best = None;
-        let mut best_distance = -1.;
+        let wanted = near.filter(|n| n.space == *space).map(|n| n.position);
+        let mut best: Option<(f64, Point)> = None;
         for p in candidates(&surface.area)? {
-            if !self.clear(space, p, obstacles, CLEARANCE) || near(&doors, p) || near(&people, p) {
+            if !self.clear(space, p, obstacles, CLEARANCE)
+                || beside(&doors, p)
+                || beside(&people, p)
+            {
                 continue;
             }
             let d = occupied
                 .iter()
                 .map(|q| distance(p, q.position))
                 .fold(f64::INFINITY, f64::min);
-            if d >= MIN_SPACING && d > best_distance {
-                best_distance = d;
-                best = Some(p);
+            let score = wanted.map_or(d, |w| -distance(p, w));
+            if d >= MIN_SPACING && best.is_none_or(|(s, _)| score > s) {
+                best = Some((score, p));
             }
         }
-        best.map(|position| Spot {
+        best.map(|(_, position)| Spot {
             locale: locale.into(),
             space: space.clone(),
             position,
@@ -112,7 +118,7 @@ impl World {
                     space: space.clone(),
                     position: *position,
                 })
-                .or_else(|| self.plan_walk_prop(&placement.instance.locale, &positions));
+                .or_else(|| self.plan_walk_prop(&placement.instance.locale, &positions, None));
             if let Some(spot) = spot {
                 positions.insert(id.clone(), spot);
             } else {
@@ -150,6 +156,7 @@ impl World {
         &self,
         locale: &str,
         positions: &BTreeMap<String, Spot>,
+        near: Option<&PlaceNear>,
     ) -> Option<Spot> {
         let map = self.walk_map.as_ref()?;
         let people: Vec<_> = self
@@ -162,6 +169,7 @@ impl World {
             positions.values(),
             &people,
             &self.avatar_obstacles(),
+            near,
         )
     }
 }

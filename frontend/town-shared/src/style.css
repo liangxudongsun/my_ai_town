@@ -479,6 +479,19 @@ body:not(.game-theme) #world-mode:hover {
 .map-props-button:active {
   box-shadow: var(--elev-1);
 }
+/* 摆道具开着时按钮按下去，再点一次退出 */
+.map-props-button[aria-pressed='true'] {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+.map-props-button[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.map-props-button[hidden] {
+  display: none;
+}
 /* 地图右下角缩放钮：+ / 当前百分比（点击回 100%）/ − */
 .map-zoom {
   position: absolute;

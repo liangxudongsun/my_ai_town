@@ -73,9 +73,9 @@ pub use population::{
     TemplateStatus, VillagerLook, PATTERN_SIZE,
 };
 pub use props::{
-    Choice, DurationRange, InventorySlot, InventoryView, ItemLocation, LegacyVerbView, PlaceRef,
-    PropActionEntry, PropActionView, PropCapabilities, PropPreview, PropView, PropsCatalog,
-    RateRange, StoredItem, SupplyView,
+    Choice, DurationRange, InventorySlot, InventoryView, ItemLocation, LegacyVerbView, PlaceNear,
+    PlaceRef, PropActionEntry, PropActionView, PropCapabilities, PropPreview, PropView,
+    PropsCatalog, RateRange, StoredItem, SupplyView,
 };
 pub use resident::{
     ActionResultView, AgentLimitRanges, AgentLimits, AgentState, AgentUsage, EvidenceSource,

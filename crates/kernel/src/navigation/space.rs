@@ -203,11 +203,13 @@ impl Space {
     }
 }
 
-/// 放置一件道具时内核交给放置器的事实：道具本身、同地点仍在地图上的家具、在场人物位置。
+/// 放置一件道具时内核交给放置器的事实：道具本身、同地点仍在地图上的家具、在场人物位置，
+/// 以及玩家在地图上点的位置（水平面 x、z，米），有它时取离它最近的空位。
 pub struct PlacementRequest<'a> {
     pub prop: &'a Prop,
     pub obstacles: Vec<&'a PropPosition>,
     pub occupied: Vec<Point>,
+    pub near: Option<[f64; 2]>,
 }
 
 /// 空间放置的计算方。几何搜索与场景包读取都在 host；内核拿到结果后只做 `check_override`。

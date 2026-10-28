@@ -814,6 +814,8 @@ export type ClientMsg =
       request_id: string
       world_id: string
       instance: Instance
+      /** 在地图上点的位置（行走坐标，米）：道具落在它附近的空位 */
+      near?: { space: string; position: [number, number] }
     }
   | { type: 'set_speed'; request_id: string; speed: number }
   | { type: 'get_model_config' | 'get_agent_limits' | 'get_population' | 'get_usage' }

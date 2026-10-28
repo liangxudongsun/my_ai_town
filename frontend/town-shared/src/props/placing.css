@@ -1,0 +1,494 @@
+/* 摆道具：模式提示、指针旁的地点名、道具浮窗、已有道具的小菜单，以及地图上的描边和定位点 */
+
+/* 摆道具时地图稍微压暗，指着的地点描白边；拖动照常平移 */
+#map.placing > svg {
+  cursor: crosshair;
+}
+#map.placing.drag > svg {
+  cursor: grabbing;
+}
+#map.placing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgb(16 24 20 / 0.12);
+  pointer-events: none;
+}
+/* 暂停提示和空镇子的邀请卡让开：摆道具时点的就是地图本身 */
+#map.placing .pause-hint,
+#map.placing .fast-hint,
+#map.placing .empty-town {
+  display: none;
+}
+/* 摆道具时不管远近都显示道具、都能点（点了弹出移除和再放的菜单）：和放大到近景时一样，
+   有像素图的只留透明点击框，没有像素图的显示简约图形 */
+svg.placing .pp {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+svg.placing .pp.prop-art-ready > :not(.prop-art-image):not(.prop-art-target) {
+  visibility: hidden;
+}
+svg.placing .pp.prop-art-ready > .prop-art-image,
+svg.placing .pp.prop-art-ready > .prop-art-target {
+  display: block;
+}
+svg.placing .pp.prop-art-ready > .prop-art-target {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.place-outline {
+  fill: rgb(255 255 255 / 0.14);
+  stroke: #fff;
+  stroke-width: 2.5px;
+  stroke-dasharray: 9 7;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.place-marker {
+  pointer-events: none;
+}
+.place-marker-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 6;
+}
+.place-marker-dot {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 5;
+}
+.place-marker-pulse {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: place-pulse 1.4s ease-out infinite;
+}
+@keyframes place-pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .place-marker-pulse {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.place-hint {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 6;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--r-s);
+  background: var(--toast-bg);
+  color: var(--toast-ink);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.place-hint button {
+  flex: none;
+  padding: 2px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+/* 浮窗开着时提示收起：浮窗自己说得清，退出点左下角的「摆道具中」或按 Esc */
+#map.place-picking .place-hint {
+  display: none;
+}
+
+.place-follow {
+  position: absolute;
+  z-index: 9;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: var(--toast-bg);
+  color: var(--toast-ink);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(14px, 14px);
+}
+.place-follow.flash {
+  padding: 6px 11px;
+  font-size: 13px;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+/* ---------- 道具浮窗 ---------- */
+.place-picker {
+  position: absolute;
+  z-index: 8;
+  width: 344px;
+  max-height: calc(100% - 80px);
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--elev-3);
+  cursor: auto;
+  user-select: text;
+}
+.place-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 10px 8px 14px;
+}
+.place-where {
+  display: grid;
+  line-height: 1.3;
+}
+.place-where small {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.place-where b {
+  font-size: 16px;
+  font-weight: 600;
+}
+.place-close {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-2);
+}
+.place-close .game-icon {
+  width: 16px;
+  height: 16px;
+}
+.place-here {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-height: 96px;
+  overflow-y: auto;
+  padding: 0 14px 10px;
+}
+.place-cap {
+  width: 100%;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.place-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 2px 3px 2px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  font-size: 12px;
+}
+.place-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place-chip.dup {
+  border-color: var(--busy);
+  background: var(--busy-soft);
+}
+.place-chip button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-3);
+}
+.place-chip button .game-icon {
+  width: 12px;
+  height: 12px;
+}
+.place-chip button:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.place-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 8px;
+}
+.place-search .game-icon {
+  position: absolute;
+  left: 24px;
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.place-search input {
+  width: 100%;
+  padding-left: 32px;
+}
+.place-search input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.place-seg {
+  display: flex;
+  gap: 2px;
+  margin: 0 14px 10px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--surface-sunken);
+  overflow-x: auto;
+}
+.place-seg button {
+  flex: 1 0 auto;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.place-seg button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+.place-seg button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+.place-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 6px;
+  border-top: 1px solid var(--line-soft);
+}
+.place-group {
+  margin: 0;
+  padding: 8px 8px 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.place-empty {
+  margin: 0;
+  padding: 16px 10px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.place-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+.place-row:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+.place-row .ui-slot {
+  --size: 40px;
+  --scale: 1.3;
+  border-radius: 9px;
+}
+.place-text {
+  display: grid;
+  min-width: 0;
+}
+.place-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+}
+.place-name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place-have {
+  flex: none;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--busy-soft);
+  color: var(--busy);
+  font-size: 11px;
+  font-weight: 600;
+}
+.place-desc {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place-act {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+.place-row:hover .place-act {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.place-act.again {
+  color: var(--busy);
+}
+.place-row:hover .place-act.again {
+  border-color: var(--busy);
+  background: var(--busy-soft);
+}
+.place-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px 8px 14px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--text-2);
+  font-size: 13px;
+}
+.place-foot.error {
+  color: var(--danger);
+}
+.place-foot strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.place-foot button {
+  flex: none;
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+.place-ok {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+}
+.place-ok .game-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+}
+
+/* ---------- 已有道具的小菜单 ---------- */
+.place-menu {
+  position: absolute;
+  z-index: 9;
+  min-width: 180px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--elev-3);
+  cursor: auto;
+}
+.place-menu-title {
+  margin: 0;
+  padding: 6px 9px 0;
+  font-weight: 600;
+}
+.place-menu-sub {
+  margin: 0 0 2px;
+  padding: 0 9px 6px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-3);
+  font-size: 12px;
+}
+.place-menu button {
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+}
+.place-menu button.danger {
+  color: var(--danger);
+}
+.place-menu button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.place-hint[hidden],
+.place-follow[hidden],
+.place-picker[hidden],
+.place-menu[hidden] {
+  display: none;
+}
+
+/* 手机：浮窗从地图底部升起，上半张地图还看得见；提示条让开右上角的圆钮 */
+[data-layout='compact'] .place-picker {
+  /* 压过浮在入口上方的事件条（z-index 11），底栏的撤销才点得到 */
+  z-index: 12;
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: 0;
+  width: auto;
+  max-height: 66%;
+  border-bottom: 0;
+  border-radius: var(--r-m) var(--r-m) 0 0;
+}
+[data-layout='compact'] .place-hint {
+  left: 12px;
+  right: auto;
+  max-width: calc(100% - 78px);
+  transform: none;
+  white-space: normal;
+}
+[data-layout='compact'] #map.place-picking .place-hint {
+  display: flex;
+}

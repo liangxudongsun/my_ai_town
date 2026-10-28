@@ -139,6 +139,7 @@ export function createPanels(input: ShellInputs) {
     },
     onLocate: locateProp,
     onUpdate: (list) => map.setProps(list),
+    map: map.placeSpotAt ? map : undefined,
     personName: (id) => observed.get(id)?.name,
   })
   const center = initSettingsCenter({
@@ -288,7 +289,7 @@ export type Panels = ReturnType<typeof createPanels>
 function createOpeners(parts: {
   avatar: { release(): Promise<boolean>; stopMoving(): void }
   pages: ReturnType<typeof createPages>
-  props: { open(): void }
+  props: { open(): void; placing: { toggle(): void } | null }
   books: { open(): void }
   session: { inSettings(): boolean }
 }) {
@@ -302,6 +303,7 @@ function createOpeners(parts: {
     library: guarded(() => pages.residents.open('library')),
     props: guarded(() => props.open()),
     books: guarded(() => books.open()),
+    placing: guarded(() => props.placing?.toggle()),
     usage: () => {
       // 只读消耗页保留控制租约和聊天；隐藏地图前清掉移动输入
       avatar.stopMoving()

@@ -2,9 +2,19 @@
 use super::Placement;
 use crate::error::{KernelError, Result};
 use crate::{navigation, World};
+use protocol::PlaceNear;
 
 impl World {
     pub fn place_prop(&mut self, placement: Placement) -> Result<()> {
+        self.place_prop_near(placement, None)
+    }
+
+    /// 玩家在地图上点了位置再放：near 只决定在哪片空位里挑，校验和留白与自动选点相同。
+    pub fn place_prop_near(
+        &mut self,
+        placement: Placement,
+        near: Option<&PlaceNear>,
+    ) -> Result<()> {
         if let Some(old) = self.props.placed.get(&placement.instance.id) {
             ensure!(
                 old == &placement,
@@ -16,13 +26,13 @@ impl World {
         let prop = self.props.validate_placement(&self.topo, &placement)?;
         self.topo
             .check_board(prop.board.as_deref(), &prop.locale, prop.readable.as_ref())?;
-        if let Some(v) = navigation::plan_override(self, &prop)? {
+        if let Some(v) = navigation::plan_override(self, &prop, near)? {
             self.topo
                 .install_override(v, navigation::walk_speed(self.walk_map.as_deref())?)?;
         }
         let walk_position = if self.topo.navigation.is_none() && self.walk_map.is_some() {
             Some(
-                self.plan_walk_prop(&prop.locale, &self.props.walk_positions)
+                self.plan_walk_prop(&prop.locale, &self.props.walk_positions, near)
                     .ok_or_else(|| KernelError::navigation("没有可用的二维道具位置"))?,
             )
         } else {

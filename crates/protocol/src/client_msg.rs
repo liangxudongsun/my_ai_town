@@ -5,7 +5,8 @@
 //! 化身的连续输入 `AvatarInput` 不回执，没有请求编号。
 use crate::{
     ActiveModelChoice, AgentLimits, ContentCommand, LibraryFilter, ModelChoice,
-    NotebookDetailQuery, NotebookQuery, ProviderConfigMsg, ProviderKeyMsg, TemplateFields,
+    NotebookDetailQuery, NotebookQuery, PlaceNear, ProviderConfigMsg, ProviderKeyMsg,
+    TemplateFields,
 };
 use serde::{Deserialize, Serialize};
 
@@ -113,10 +114,13 @@ pub enum ClientMsg {
         id: String,
     },
     /// 放置道具；instance 是内核 `props::Instance` 的 JSON，理由同 ValidateProp。
+    /// near 是在地图上点的位置，道具落在它附近的空位；不给时由放置器自己挑。
     PlaceProp {
         request_id: String,
         world_id: String,
         instance: serde_json::Value,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        near: Option<PlaceNear>,
     },
     SetSpeed {
         request_id: String,

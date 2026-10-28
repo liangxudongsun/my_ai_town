@@ -30,6 +30,11 @@ export interface WalkTarget {
   space: string
   position: [number, number]
 }
+/** 摆道具时点到的地方：落在哪个地点，以及那一点的行走坐标（放置命令的 near） */
+export interface PlaceSpot {
+  locale: string
+  near: WalkTarget
+}
 /** 路线上的一个点；带 portal 时表示走到这里再开这扇门 */
 export interface WalkStep {
   point: WalkTarget
@@ -56,6 +61,15 @@ export interface GameMap {
   walkDirection?(direction: [number, number]): [number, number]
   /** 画出或清掉目的地标记 */
   setAvatarDestination?(target: WalkTarget | null): void
+  /** 摆道具模式：开着时点空地交给 onPlaceClick（带屏幕坐标），不让化身走过去 */
+  setPlacing?(placing: boolean): void
+  onPlaceClick?: ((client: [number, number]) => void) | null
+  /** 屏幕上一点落在哪个能放东西的地点；不在任何地点里返回 undefined */
+  placeSpotAt?(client: [number, number]): PlaceSpot | undefined
+  /** 描出指着或选中的地点；null 清掉 */
+  setPlaceHighlight?(locale: string | null): void
+  /** 在点过的位置画定位点；null 清掉 */
+  setPlaceMarker?(target: WalkTarget | null): void
   /** 地图俯角（度）；只有 2D 立体场景有，其他地图不实现或返回 undefined */
   mapPitch?(): number | undefined
   /** 设俯角，立即重画并记到本机 */

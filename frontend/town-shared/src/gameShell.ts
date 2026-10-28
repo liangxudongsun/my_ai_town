@@ -96,7 +96,12 @@ export function startGameShell(
     save: connection.save,
     audio,
   })
-  installMapButtons(panels.open, panels.books.watch, listeners.signal)
+  installMapButtons(
+    panels.open,
+    panels.books.watch,
+    panels.props.placing?.watch ?? null,
+    listeners.signal
+  )
   wireMap(map, panels)
   systemBars('paper')
   // 开局向导：第一次进新世界时代替首次对话框，手机和电脑一样；手机在「更多」、电脑在顶栏「帮助」里重新打开
@@ -255,8 +260,11 @@ function wireMap(map: GameMap, panels: Panels) {
     panels.props.closeCard()
     if (!panels.avatar.select('chat', id)) panels.infoPanel.select(id)
   }
+  // 摆道具时点空地打开道具浮窗，点道具弹出移除和再放的菜单
+  map.onPlaceClick = (client) => panels.props.placing?.clickAt(client)
   // 书和公告直接打开「书与公告」：一摞书看这个地点的书，公告栏看栏上的公告，单本直接读
   map.onPropClick = (id) => {
+    if (panels.props.placing?.propClick(id)) return
     if (panels.avatar.select('bag', id)) return
     panels.props.closeCard()
     if (map.isBookPile?.(id)) panels.books.place(id)

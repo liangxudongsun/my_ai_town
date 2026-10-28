@@ -155,9 +155,11 @@ export function topbarPanel(
 
 /** 地图内按钮沿用缩放控件的事件隔离，避免拖拽捕获指针后丢失点击。 */
 export function installMapButtons(
-  open: { props(): void; books(): void },
+  open: { props(): void; books(): void; placing(): void },
   /** 书与公告上的数字：没看过的新作品 */
   watchBooks: (update: (count: number) => void) => void,
+  /** 摆道具的按下状态；地图不支持摆道具时为 null，按钮藏起来 */
+  watchPlacing: ((update: (active: boolean) => void) => void) | null,
   signal: AbortSignal
 ) {
   const propsButton = $('open-props')
@@ -167,7 +169,14 @@ export function installMapButtons(
   iconLabel(booksButton, 'book', '书与公告')
   booksButton.onclick = open.books
   watchBooks(countBadge(booksButton, '书与公告'))
-  for (const entry of [propsButton, booksButton])
+  const placingButton = $('open-placing')
+  placingButton.onclick = open.placing
+  placingButton.hidden = !watchPlacing
+  watchPlacing?.((active) => {
+    iconLabel(placingButton, 'plus', active ? '摆道具中' : '摆道具')
+    placingButton.setAttribute('aria-pressed', String(active))
+  })
+  for (const entry of [propsButton, booksButton, placingButton])
     for (const type of ['pointerdown', 'dblclick'])
       entry.addEventListener(type, (event) => event.stopPropagation(), { signal })
 }

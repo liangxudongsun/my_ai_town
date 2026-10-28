@@ -87,23 +87,27 @@ impl Placer for ScenePlacer {
             occupied: &request.occupied,
         };
         let (model, size) = self.model(prop);
-        let pp = find_free_position(s, &site, prop, model, size).ok_or_else(|| {
-            KernelError::Navigation("没有不阻挡人物、家具和既有通路的放置位置".into())
-        })?;
+        let pp =
+            find_free_position(s, &site, prop, model, size, request.near).ok_or_else(|| {
+                KernelError::Navigation("没有不阻挡人物、家具和既有通路的放置位置".into())
+            })?;
         let route = walk_route(s, site.floor, site.arrival, prop, &pp)?;
         Ok(kernel::navigation::space::Override { prop: pp, route })
     }
 }
 
-/// 按格点从区域一角扫过去，取第一个满足全部留白的位置。
+/// 在区域的格点里取第一个满足全部留白的位置：玩家点了位置就从离它最近的格点试起，
+/// 否则从区域一角一行行扫过去。
 fn find_free_position(
     s: &Space,
     site: &Site,
     prop: &Prop,
     model: String,
     [w, depth]: [f64; 2],
+    near: Option<[f64; 2]>,
 ) -> Option<PropPosition> {
     let b = &site.floor.bounds;
+    let mut spots = Vec::new();
     for row in 0..GRID_CELLS {
         let z = b.y + depth / 2. + FLOOR_MARGIN + row as f64 * GRID_STEP;
         if z > b.y + b.h - depth / 2. - 1. {
@@ -114,23 +118,27 @@ fn find_free_position(
             if x > b.x + b.w - w / 2. - FLOOR_MARGIN {
                 break;
             }
-            let y = s.height_at(x, z, site.arrival.position[1]);
-            let az = z + depth / 2. + ANCHOR_OFFSET;
-            let pp = PropPosition {
-                id: prop.id.clone(),
-                locale: prop.locale.clone(),
-                model: model.clone(),
-                position: [x, y, z],
-                anchor: [x, s.height_at(x, az, y), az],
-                yaw: 0.,
-                footprint: [w, depth],
-            };
-            if position_is_free(s, site, &pp) {
-                return Some(pp);
-            }
+            spots.push([x, z]);
         }
     }
-    None
+    if let Some([nx, nz]) = near {
+        let away = |[x, z]: [f64; 2]| (x - nx).hypot(z - nz);
+        spots.sort_by(|a, b| away(*a).total_cmp(&away(*b)));
+    }
+    spots.into_iter().find_map(|[x, z]| {
+        let y = s.height_at(x, z, site.arrival.position[1]);
+        let az = z + depth / 2. + ANCHOR_OFFSET;
+        let pp = PropPosition {
+            id: prop.id.clone(),
+            locale: prop.locale.clone(),
+            model: model.clone(),
+            position: [x, y, z],
+            anchor: [x, s.height_at(x, az, y), az],
+            yaw: 0.,
+            footprint: [w, depth],
+        };
+        position_is_free(s, site, &pp).then_some(pp)
+    })
 }
 
 fn position_is_free(s: &Space, site: &Site, pp: &PropPosition) -> bool {

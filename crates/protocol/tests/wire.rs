@@ -171,8 +171,9 @@ fn no_geometry_on_the_wire() {
             .as_str()
             .unwrap()
             .to_string();
-        // avatar_input.pose 是玩家三维碰撞解算后的专用位置上报；Agent 意图仍禁止几何。
-        if tag != "avatar_input" {
+        // avatar_input.pose 是玩家三维碰撞解算后的专用位置上报；place_prop.near 是玩家摆道具时
+        // 在地图上点的位置，只作选点偏好。两者都只有玩家界面发，Agent 意图仍禁止几何。
+        if tag != "avatar_input" && tag != "place_prop" {
             check(&format!("ClientMsg::{tag}"), &json);
         }
         client_tags.insert(tag);

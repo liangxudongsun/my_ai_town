@@ -29,7 +29,7 @@ function definitionOf(view: PropsView, p: PropView) {
 
 /** 一个动作的用处，看效果和完成方式，玩家自己做的道具也能自动归类：恢复饱腹或水分算吃喝，
  *  恢复精力或睡觉算休息，回健康、治病、复活算看病，耗体力的劳作算干活，读书、写书、查资料算阅读 */
-function usesOf(a: Action) {
+export function usesOf(a: Action) {
   const done = a.on_complete ?? []
   const gains = new Set<BodyNeed>([
     ...a.during.flatMap((e) => (e.kind === 'restore_need' ? [e.need] : [])),

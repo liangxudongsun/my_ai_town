@@ -1,6 +1,7 @@
 // 道具页的状态：服务端给的道具目录、选中的一行、连接与等回执的命令，以及两个列表视图用到的页面部件和操作。
 import type { ClientMsg } from '../protocol'
 import type { Appearance, BodyNeed, Definition, PropCatalog, PropView } from './types'
+import type { PlacingMap } from './placing'
 
 export interface PropsDeps {
   send: (m: ClientMsg) => void
@@ -8,6 +9,8 @@ export interface PropsDeps {
   read: (id: string) => void
   /** 到「书与公告」页看这块公告栏上的公告 */
   openBoard: (id: string) => void
+  /** 摆道具用到的地图接口；没有就不提供摆道具 */
+  map?: PlacingMap
   onLocate: (id: string, locale: string) => void
   onUpdate: (props: PropView[]) => void
   /** 村民编号 → 名字（谁在用这件东西）；不认识的编号返回 undefined */
@@ -16,11 +19,12 @@ export interface PropsDeps {
   game: boolean
 }
 
-/** 等回执的命令；保存还记着定义与外观，成功后在本机存外观 */
+/** 等回执的命令；保存还记着定义与外观，成功后在本机存外观；摆道具的命令带 done，回执到了交给它 */
 interface PendingOp {
   kind: string
   definition?: Definition
   appearance?: Appearance
+  done?: (ok: boolean, message: string) => void
 }
 
 interface PropsPageState {
@@ -65,6 +69,10 @@ export interface PropsView {
   close(): void
   /** 以这个定义为底打开编辑器 */
   edit(d: Definition): void
-  /** 放置、移除这类改世界的命令：登记请求编号，回包按编号对上后才提示结果 */
-  sendWorldCommand(kind: string, command: (world_id: string, request_id: string) => ClientMsg): void
+  /** 放置、移除这类改世界的命令：登记请求编号，回包按编号对上后才提示结果；没连上时返回 false */
+  sendWorldCommand(
+    kind: string,
+    command: (world_id: string, request_id: string) => ClientMsg,
+    done?: (ok: boolean, message: string) => void
+  ): boolean
 }

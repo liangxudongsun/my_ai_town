@@ -88,7 +88,8 @@ export class MapCamera {
     private onVillagerClick: (id: string) => void,
     private onPropClick: (id: string) => void = () => {},
     private onPromptClick: (id: string) => void = () => {},
-    private onGroundClick: (point: [number, number]) => void = () => {},
+    /** 点了空地：地面世界坐标，以及点在屏幕上的位置（摆道具的浮窗贴着它出现） */
+    private onGroundClick: (point: [number, number], client: [number, number]) => void = () => {},
     private onGroupClick: (key: string, client: [number, number]) => void = () => {},
     /** 双指同向上下拖：屏幕像素位移，交给立体场景调俯角 */
     private onTilt: (dy: number) => void = () => {}
@@ -380,6 +381,11 @@ export class MapCamera {
     if (!w || !h) return [this.vb0[2], this.vb0[3]]
     const unit = PIXEL / this.scale
     return [w * unit, (h * unit) / this.vScale]
+  }
+
+  /** 屏幕上一点下面的地面世界坐标 */
+  groundAt(cx: number, cy: number): [number, number] {
+    return this.unproject(this.clientToView(cx, cy))
   }
 
   /** 屏幕坐标 → 旋转后的视图坐标。走 SVG 自己的 CTM，preserveAspectRatio 留白也算得准 */
@@ -761,7 +767,7 @@ export class MapCamera {
       else if (d.group) this.onGroupClick(d.group, [ev.clientX, ev.clientY])
       else if (d.vid) this.onVillagerClick(d.vid)
       else if (d.prop) this.onPropClick(d.prop)
-      else this.onGroundClick(this.unproject(this.clientToView(ev.clientX, ev.clientY)))
+      else this.onGroundClick(this.groundAt(ev.clientX, ev.clientY), [ev.clientX, ev.clientY])
     }
     mapEl.addEventListener('pointerup', release, { signal })
     mapEl.addEventListener('pointercancel', release, { signal })

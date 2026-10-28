@@ -1248,6 +1248,10 @@ pub fn client_samples() -> Vec<ClientMsg> {
             request_id: "r7".into(),
             world_id: "w1".into(),
             instance: json!({"id": "user:bench", "definition": "core:bench@1", "locale": "loc_a", "name": "工作台", "board": "board1"}),
+            near: Some(PlaceNear {
+                space: "town_outdoor".into(),
+                position: [12.5, 8.],
+            }),
         },
         ClientMsg::SetSpeed {
             request_id: "req-1".into(),

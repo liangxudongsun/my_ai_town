@@ -1,7 +1,7 @@
 //! 移动是动作生命周期的一部分。路线由已校验的地图几何编译而来。
 use crate::error::{KernelError, Result};
 use crate::{avatar::WalkMap, intent::Intent, topology::Prop, World};
-use protocol::At;
+use protocol::{At, PlaceNear};
 use space::{Override, PlacementRequest, MAX_OVERRIDES};
 
 pub mod free;
@@ -49,7 +49,12 @@ pub(crate) fn at_station(actor: &crate::actor::Actor, station: &str) -> bool {
 }
 
 /// 新放置的道具在空间地图上的位置与通路：由 host 的放置器计算；没有空间地图时不需要。
-pub(crate) fn plan_override(w: &World, prop: &Prop) -> Result<Option<Override>> {
+/// 空间地图全图一个坐标系，near 的 space 不用看。
+pub(crate) fn plan_override(
+    w: &World,
+    prop: &Prop,
+    near: Option<&PlaceNear>,
+) -> Result<Option<Override>> {
     let Some(s) = &w.topo.navigation else {
         return Ok(None);
     };
@@ -81,6 +86,7 @@ pub(crate) fn plan_override(w: &World, prop: &Prop) -> Result<Option<Override>> 
             .values()
             .filter_map(|a| w.topo.point(&a.locus.locale, &a.locus.at))
             .collect(),
+        near: near.map(|n| n.position),
     };
     placer.plan(s, &request).map(Some)
 }

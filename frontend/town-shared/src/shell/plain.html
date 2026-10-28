@@ -26,7 +26,7 @@
   <button id="open-settings" title="人设、长相、模型、额度、重置世界">设定</button>
   <button id="open-help" title="开局向导、新手提示和按键说明">帮助</button>
 </template>
-<!-- 地图左下角的两个入口：场景物品、书与公告，放在地图画面之前 -->
+<!-- 地图左下角的入口：场景物品、书与公告、摆道具，放在地图画面之前 -->
 <template data-slot="map"
   ><div class="map-corner">
     <button
@@ -46,6 +46,15 @@
       title="村民写的书、公告栏上的告示；你也可以写书、贴公告"
     >
       书与公告
+    </button>
+    <button
+      id="open-placing"
+      class="map-props-button"
+      type="button"
+      aria-pressed="false"
+      title="在地图上点一个地点，往那里放道具"
+    >
+      摆道具
     </button>
   </div></template
 >

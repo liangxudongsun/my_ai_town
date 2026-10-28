@@ -12,6 +12,15 @@ pub enum ItemLocation {
     Ground { locale: String, station: String },
 }
 
+/// 摆道具时玩家在地图上点的位置，坐标系同化身的行走坐标（米）。只是选点偏好：
+/// 放置器照旧按留白规则找空位，取离这一点最近的那个。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlaceNear {
+    pub space: String,
+    pub position: [f64; 2],
+}
+
 /// 有限补给：初始份数与每次消耗的份数。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SupplyView {
@@ -74,7 +83,7 @@ pub struct PropView {
     pub occupants: Vec<String>,
     pub on_map: bool,
     pub portable: bool,
-    /// 精确导航地图上放下的物品画在哪里。
+    /// 精确导航地图上放下的物品、运行中放进来的道具画在哪里。
     pub position: Option<[f64; 3]>,
     pub readable: Option<ContentMetadata>,
     pub stack_limit: u32,

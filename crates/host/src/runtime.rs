@@ -263,8 +263,9 @@ impl Runtime {
             PlaceProp {
                 request_id,
                 instance,
+                near,
                 ..
-            } => self.place_prop(request_id, instance),
+            } => self.place_prop(request_id, instance, near),
             GetPopulation => Outcome::reply(self.population_msg()),
             SetResidentAppearance {
                 request_id,

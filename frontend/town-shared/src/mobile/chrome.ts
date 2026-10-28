@@ -22,7 +22,7 @@ interface ChromeDeps {
   }
   /** 村民卡里的聊天记录：开着时返回键先关它 */
   chatHistory: { back(): boolean }
-  open: { residents(): void; props(): void; books(): void; usage(): void }
+  open: { residents(): void; props(): void; books(): void; usage(): void; placing(): void }
   /** 「书报」上的数字：没看过的新作品 */
   watchBooks: (update: (count: number) => void) => void
   openSettings: () => void
@@ -137,6 +137,10 @@ export function installMobileChrome(d: ChromeDeps) {
       tile('chart', '消耗', () => {
         closePopover()
         d.open.usage()
+      }),
+      tile('plus', '摆道具', () => {
+        closePopover()
+        d.open.placing()
       }),
       tile('sound', '音乐', toggle('music'), d.audio.music.enabled() ? '开' : '关'),
       tile('sound', '音效', toggle('effects'), d.audio.effects.enabled() ? '开' : '关'),

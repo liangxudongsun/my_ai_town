@@ -6,6 +6,7 @@ import type { Appearance, PropView } from 'town-shared/props/types'
 import type { Atlas, Topology } from 'town-shared/mapDocument'
 import type {
   AvatarPrompt,
+  PlaceSpot,
   ResidentEntry,
   ScreenBox,
   WalkStep,
@@ -120,8 +121,25 @@ export class TownMap {
   onVillagerClick: ((id: string) => void) | null = null
   onPromptClick: ((id: string) => void) | null = null
   onAvatarWalkTo: ((target: WalkTarget) => void) | null = null
+  onPlaceClick: ((client: [number, number]) => void) | null = null
   private readonly destination = el('g', { class: 'avatar-destination' })
   private destinationAt: WalkTarget | null = null
+  /** 摆道具：模式开关、描边的地点、点过的位置 */
+  private placing = false
+  private placeLocale: string | null = null
+  private placeAt: WalkTarget | null = null
+  private readonly placeOutline = el('path', { class: 'place-outline' })
+  private readonly placeMarker = el('g', { class: 'place-marker' })
+  /** 平面图上各区域占的格子，第一次摆道具时才建 */
+  private cellsOfRegions?: Map<string, { size: number; cells: Set<string> }>
+  private get regionCells() {
+    return (this.cellsOfRegions ??= new Map(
+      this.sourceAtlas.regions.map((r) => [
+        r.id,
+        { size: r.cell_size, cells: new Set(r.cells.map(([x, y]) => `${x},${y}`)) },
+      ])
+    ))
+  }
   private markerScale = 1
   /** 道具立牌最近一次实际画的位置，名字和点击区跟着它 */
   private drawnProps: { id: string; x: number; y: number; base: number; size: number }[] = []
@@ -210,7 +228,20 @@ export class TownMap {
       el('circle', { class: 'avatar-destination-dot', r: 14 })
     )
     this.destination.style.display = 'none'
-    this.svg.append(this.residents.layer, this.destination, this.bubbles.layer, this.prompts.layer)
+    this.placeMarker.append(
+      el('circle', { class: 'place-marker-pulse', r: 30 }),
+      el('circle', { class: 'place-marker-ring', r: 30 }),
+      el('circle', { class: 'place-marker-dot', r: 12 })
+    )
+    this.placeMarker.style.display = 'none'
+    this.svg.append(
+      this.placeOutline,
+      this.residents.layer,
+      this.destination,
+      this.placeMarker,
+      this.bubbles.layer,
+      this.prompts.layer
+    )
     this.nameHoveredProps()
     container.appendChild(this.svg)
     this.svg.addEventListener('keydown', (event) => {
@@ -238,7 +269,8 @@ export class TownMap {
       (id) => this.onVillagerClick?.(id),
       (id) => this.onPropClick?.(id),
       (id) => this.onPromptClick?.(id),
-      (point) => this.onAvatarWalkTo?.(this.walkTarget(point)),
+      (point, client) =>
+        this.placing ? this.onPlaceClick?.(client) : this.onAvatarWalkTo?.(this.walkTarget(point)),
       (key, client) => this.residents.openGroup(key, client),
       // 双指上下拖调俯角：和右键拖动同样每像素 0.2 度
       (dy) => {
@@ -589,15 +621,117 @@ export class TownMap {
   }
   /** 目的地标记跟着人物标记一起反向缩放，放大后不会盖住半张图 */
   private placeDestination() {
-    this.destination.style.display = this.destinationAt ? '' : 'none'
-    if (!this.destinationAt) return
-    const [x, y] = this.camera.project(this.walkPoint(this.destinationAt))
+    this.pin(this.destination, this.destinationAt)
+    this.pin(this.placeMarker, this.placeAt)
+    this.placeOutline.setAttribute(
+      'd',
+      (this.placeLocale ? this.outlineOf(this.placeLocale) : [])
+        .map((line) => 'M' + line.map((p) => this.camera.project(p).join(' ')).join('L'))
+        .join('')
+    )
+  }
+  private pin(marker: SVGGElement, at: WalkTarget | null) {
+    marker.style.display = at ? '' : 'none'
+    if (!at) return
+    const [x, y] = this.camera.project(this.walkPoint(at))
     const s = this.markerScale,
       sy = s * uprightRatio(this.svg)
-    this.destination.setAttribute(
+    marker.setAttribute(
       'transform',
       `translate(${x} ${y})${s === 1 && sy === 1 ? '' : ` scale(${s} ${sy})`}`
     )
+  }
+
+  /** 摆道具模式：开着时点空地交给 onPlaceClick，不让化身走过去；关掉时清掉描边和定位点 */
+  setPlacing(placing: boolean) {
+    this.placing = placing
+    this.svg.classList.toggle('placing', placing)
+    if (!placing) this.placeLocale = this.placeAt = null
+    this.placeDestination()
+  }
+  setPlaceHighlight(locale: string | null) {
+    this.placeLocale = locale
+    this.placeDestination()
+  }
+  setPlaceMarker(target: WalkTarget | null) {
+    this.placeAt = target
+    this.placeDestination()
+  }
+  placeSpotAt(client: [number, number]): PlaceSpot | undefined {
+    const point = this.camera.groundAt(...client)
+    const locale = this.localeAt(point)
+    return locale ? { locale, near: this.walkTarget(point) } : undefined
+  }
+  /** 能放东西的地点：有三维数据时按各地点的可放置范围（和后端放置器用的同一块），
+   *  否则按房间和图上的区域格子；只认居民能待的地点，路段和通道不算 */
+  private localeAt(point: [number, number]): string | undefined {
+    const dwell = (id: string | undefined) =>
+      id && this.topology.locales.some((l) => l.id === id && l.kind === 'dwell') ? id : undefined
+    if (this.spatial) {
+      const unit = this.spatial.svg_units_per_metre
+      const [x, z] = [point[0] / unit, point[1] / unit]
+      const floors = (this.spatial.floors ?? []).filter(
+        ({ bounds: b }) => x >= b.x && x <= b.x + b.w && z >= b.y && z <= b.y + b.h
+      )
+      // 范围套着范围时取小的那个：屋子在院子里，点屋里就是放进屋里
+      floors.sort((a, b) => a.bounds.w * a.bounds.h - b.bounds.w * b.bounds.h)
+      return dwell(floors[0]?.id)
+    }
+    const space = this.scene.spaceAt(point)
+    if (space !== OUTDOOR_SPACE) return dwell(space)
+    for (const [id, { size, cells }] of this.regionCells)
+      if (cells.has(`${Math.floor(point[0] / size)},${Math.floor(point[1] / size)}`))
+        return dwell(id)
+    return undefined
+  }
+  /** 地点的边（地图坐标的折线）：可放置范围和房间是矩形，区域是格子外沿的一段段边 */
+  private outlineOf(locale: string): [number, number][][] {
+    const rect = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [
+      [x0, y0],
+      [x1, y0],
+      [x1, y1],
+      [x0, y1],
+      [x0, y0],
+    ]
+    if (this.spatial) {
+      const unit = this.spatial.svg_units_per_metre
+      const b = this.spatial.floors?.find((f) => f.id === locale)?.bounds
+      return b ? [rect(b.x * unit, b.y * unit, (b.x + b.w) * unit, (b.y + b.h) * unit)] : []
+    }
+    const room = this.sourceAtlas.spaces.find((s) => s.id === locale)
+    if (room) {
+      const box = roomRect(room)
+      return [rect(box.x, box.y, box.x1, box.y1)]
+    }
+    const region = this.regionCells.get(locale)
+    if (!region) return []
+    const { size, cells } = region
+    const edges: [number, number][][] = []
+    for (const key of cells) {
+      const [cx, cy] = key.split(',').map(Number)
+      const [x0, y0, x1, y1] = [cx * size, cy * size, (cx + 1) * size, (cy + 1) * size]
+      if (!cells.has(`${cx},${cy - 1}`))
+        edges.push([
+          [x0, y0],
+          [x1, y0],
+        ])
+      if (!cells.has(`${cx + 1},${cy}`))
+        edges.push([
+          [x1, y0],
+          [x1, y1],
+        ])
+      if (!cells.has(`${cx},${cy + 1}`))
+        edges.push([
+          [x1, y1],
+          [x0, y1],
+        ])
+      if (!cells.has(`${cx - 1},${cy}`))
+        edges.push([
+          [x0, y1],
+          [x0, y0],
+        ])
+    }
+    return edges
   }
 
   handleMsg(msg: ServerMsg) {

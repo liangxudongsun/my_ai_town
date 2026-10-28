@@ -17,6 +17,7 @@ import { createPropCard } from './card'
 import { readPackage, renderLibrary } from './libraryView'
 import { createPropsPageState, type PropsDeps, type PropsView } from './pageState'
 import { PURPOSES, renderWorld } from './worldView'
+import { createPlacing } from './placing'
 
 const worldHint = '点选一件物品，看它能做什么、现在能不能用。'
 
@@ -118,6 +119,8 @@ export function initProps(deps: PropsDeps) {
     onReset: () => page.onReset(),
     handleMsg: (msg: ServerMsg) => page.handleMsg(msg),
     dispose: () => page.dispose(),
+    /** 摆道具；地图不支持时为 null */
+    placing: page.placing,
   }
 }
 
@@ -139,6 +142,7 @@ class PropsPage implements PropsView {
   /** 地点下拉框上次按哪份地点表建的 */
   private locationSignature = ''
   private readonly announce: ReturnType<typeof announcer>
+  readonly placing: ReturnType<typeof createPlacing> | null
   readonly localeName = (id: string) =>
     this.state.catalog?.locations.find((l) => l.id === id)?.name ?? id
   readonly personName = (id: string) => this.deps.personName?.(id)
@@ -164,6 +168,15 @@ class PropsPage implements PropsView {
       deps.game
     )
     this.announce = announcer(this.page.status)
+    this.placing = deps.map
+      ? createPlacing({
+          map: deps.map,
+          catalog: () => this.state.catalog,
+          localeName: this.localeName,
+          refresh: () => deps.send({ type: 'get_props' }),
+          command: (kind, build, done) => this.sendWorldCommand(kind, build, done),
+        })
+      : null
     this.bindEvents()
   }
 
@@ -265,6 +278,7 @@ class PropsPage implements PropsView {
   open(id?: string) {
     const { page } = this
     this.closeCard()
+    this.placing?.exit()
     if (id) {
       page.mode.value = 'world'
       page.search.value = ''
@@ -324,16 +338,21 @@ class PropsPage implements PropsView {
     this.announce(kind === 'save_prop' ? '正在保存固定版本…' : '正在校验效果…')
   }
 
-  sendWorldCommand(kind: string, command: (world_id: string, request_id: string) => ClientMsg) {
+  sendWorldCommand(
+    kind: string,
+    command: (world_id: string, request_id: string) => ClientMsg,
+    done?: (ok: boolean, message: string) => void
+  ) {
     const { catalog, connected, pending } = this.state
-    if (!catalog) return
+    if (!catalog) return false
     if (!connected) {
       this.announce('连接已断开，无法操作', true)
-      return
+      return false
     }
     const request_id = newId()
-    pending.set(request_id, { kind })
+    pending.set(request_id, { kind, done })
     this.deps.send(command(catalog.world_id, request_id))
+    return true
   }
 
   render() {
@@ -386,6 +405,7 @@ class PropsPage implements PropsView {
     }
     state.catalog = next
     if (this.cardId) this.renderCard()
+    this.placing?.refreshed()
     // 道具页每 2 秒刷新一次目录；地点没变就不重建下拉框，不然开着的下拉列表会一闪一闪
     const placesKey = JSON.stringify(next.locations)
     if (placesKey !== this.locationSignature) {
@@ -445,6 +465,7 @@ class PropsPage implements PropsView {
     if (!op) return
     state.pending.delete(msg.request_id)
     this.announce(msg.message, !msg.ok)
+    op.done?.(msg.ok, msg.message)
     if (op.kind === 'validate_prop') showValidation(msg)
     if (msg.ok && op.kind === 'save_prop' && op.definition && op.appearance) {
       state.renderSignature = ''
@@ -471,6 +492,7 @@ class PropsPage implements PropsView {
     state.connected = false
     const unconfirmed = state.pending.size > 0
     state.pending.clear()
+    this.placing?.disconnected()
     this.announce(
       unconfirmed
         ? '小镇的连接断了，刚才的操作没收到结果；连上后请再看一眼道具列表。'
@@ -490,12 +512,14 @@ class PropsPage implements PropsView {
     state.renderSignature = ''
     state.pending.clear()
     this.page.editor.hidden = true
+    this.placing?.reset()
     this.deps.send({ type: 'get_props' })
     this.render()
   }
 
   dispose() {
     this.listeners.abort()
+    this.placing?.dispose()
     this.lifecycle.close()
     this.closeCard()
     this.card.root.remove()

@@ -41,7 +41,14 @@ fn prop_view(w: &World, p: &Prop) -> PropView {
         occupants: w.prop_occupants(&p.id),
         on_map: w.inventory.on_map(&w.props, &p.id),
         portable: p.portable,
-        position: w.inventory.position(&w.topo, &p.id),
+        // 放在地上的物品取落脚点；运行中放下的道具取放置器给的位置，地图文件里的道具前端自己有
+        position: w.inventory.position(&w.topo, &p.id).or_else(|| {
+            let placed = w.topo.navigation.as_ref()?.overrides.get(&p.id)?;
+            w.inventory
+                .location(&p.id)
+                .is_none()
+                .then_some(placed.prop.position)
+        }),
         readable: p.readable.as_ref().map(crate::content::Text::metadata),
         stack_limit: p.stack_limit,
         storage_slots: p.storage_slots,

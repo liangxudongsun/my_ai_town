@@ -3,7 +3,7 @@
 use crate::runtime::{Outcome, Runtime};
 use host::{props::CORE_PREFIX, HostError};
 use kernel::props::{Definition, Instance, Placement};
-use protocol::{ContentCommand, PlaceRef, PropPreview, PropsCatalog, ServerMsg};
+use protocol::{ContentCommand, PlaceNear, PlaceRef, PropPreview, PropsCatalog, ServerMsg};
 use serde_json::Value;
 
 impl Runtime {
@@ -90,8 +90,13 @@ impl Runtime {
         self.prop_reply(request_id, result)
     }
 
-    pub(crate) fn place_prop(&mut self, request_id: String, instance: Value) -> Outcome {
-        let result = self.place_library_prop(instance);
+    pub(crate) fn place_prop(
+        &mut self,
+        request_id: String,
+        instance: Value,
+        near: Option<PlaceNear>,
+    ) -> Outcome {
+        let result = self.place_library_prop(instance, near);
         self.prop_reply(request_id, result)
     }
 
@@ -144,7 +149,11 @@ impl Runtime {
     }
 
     /// 放置（含替换同编号的已有实例）是事务，失败时恢复到放置前。
-    fn place_library_prop(&mut self, instance: Value) -> Result<PropPreview, String> {
+    fn place_library_prop(
+        &mut self,
+        instance: Value,
+        near: Option<PlaceNear>,
+    ) -> Result<PropPreview, String> {
         let instance: Instance =
             serde_json::from_value(instance).map_err(|e| format!("实例格式错误：{e}"))?;
         if !instance.id.starts_with(USER_PREFIX) {
@@ -158,10 +167,13 @@ impl Runtime {
             .ok_or("道具版本不存在")?
             .clone();
         self.transact(|rt| {
-            rt.world.place_prop(Placement {
-                instance,
-                definition,
-            })
+            rt.world.place_prop_near(
+                Placement {
+                    instance,
+                    definition,
+                },
+                near.as_ref(),
+            )
         })
         .map_err(|aborted| aborted.to_string())?;
         Ok(PropPreview::Done {})

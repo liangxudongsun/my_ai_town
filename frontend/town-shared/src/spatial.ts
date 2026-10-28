@@ -49,6 +49,8 @@ export interface Spatial {
   version: number
   units: string
   svg_units_per_metre: number
+  /** 各地点能放东西的范围（米；y 是地面上的 z）。后端放置器在这块里找空位 */
+  floors?: { id: string; indoor: boolean; bounds: { x: number; y: number; w: number; h: number } }[]
   navigation_revision: number
   terrain: Terrain
   buildings: Building[]
