@@ -44,7 +44,6 @@ import { gradeShader, SceneDepthPass, TILT_FOCUS, tiltShader } from './post'
 import { landmarkSprites } from './landmarks'
 import { outerMaterial } from './sea'
 import { Horizon } from './horizon'
-import { RiverArt } from './riverArt'
 import { ChimneySmoke } from './smoke'
 import { interior, interiorTop, keepInside } from './interior'
 import type { Partition } from './partition'
@@ -182,10 +181,13 @@ export class HdScene {
   /** 灯塔转动的光束（冰雪风格） */
   private readonly beams: THREE.Mesh[] = []
   private readonly smoke = new ChimneySmoke()
+  /** 逐帧动画的地标（喷泉）：图集横排，按时间挪贴图的横向偏移 */
+  private readonly flipbooks: { maps: THREE.Texture[]; frames: number; fps: number }[] = []
+  /** 自己发一点光的地标（喷泉的水），亮度随昼夜变 */
+  private readonly selfLit: THREE.MeshLambertMaterial[] = []
   /** 海面动画的时间（秒） */
   private readonly seaTime: { value: number }
   private readonly horizon: Horizon
-  private readonly riverArt: RiverArt
   private readonly observers: { disconnect(): void }[] = []
   private readonly reduceMotion = matchMedia('(prefers-reduced-motion: reduce)')
   private frame = 0
@@ -229,10 +231,6 @@ export class HdScene {
       theme.islet
     )
     this.upright.push((t) => this.horizon.setTilt(t))
-    this.riverArt = new RiverArt(this.scene, ground, () => {
-      this.onDecorationChange?.()
-      this.request()
-    })
     this.scene.add(this.smoke.group)
     this.upright.push((t) => this.smoke.setTilt(t))
     this.seaTime = this.addGround(ground)
@@ -326,6 +324,8 @@ export class HdScene {
       this.horizon.step(t / 1000)
       for (const b of this.beams) b.rotation.y -= dt * 0.9
       this.smoke.step(t / 1000)
+      for (const b of this.flipbooks)
+        for (const m of b.maps) m.offset.x = (Math.floor((t / 1000) * b.fps) % b.frames) / b.frames
       changed = true
     }
     if (changed) this.draw(t)
@@ -879,7 +879,6 @@ export class HdScene {
     seed: number
   ) {
     const open = terrain.open.slice()
-    this.riverArt.reserve(open, terrain.width)
     this.addLandmarks(atlas, terrain.docks, open, terrain.width, seed)
     this.addScatter(terrain, open, seed)
     return open
@@ -888,8 +887,11 @@ export class HdScene {
   /** 户外地点的标志物立牌；立牌占的地方从空地里去掉 */
   private addLandmarks(atlas: Atlas, docks: Dock[], open: Uint8Array, pw: number, seed: number) {
     for (const s of landmarkSprites(atlas, seed, docks, this.theme.landmarks)) {
+      // 逐帧动画的立牌按一帧的宽度算
+      const frames = s.frames ?? 1,
+        width = s.canvas.width / frames
       // 占地和房子重叠的不放（默认小镇的市集中间就有一栋房子）
-      const half = (s.canvas.width / 2) * PIXEL,
+      const half = (width / 2) * PIXEL,
         deep = s.canvas.height * 0.4 * PIXEL
       if (
         this.houses.some(
@@ -897,13 +899,22 @@ export class HdScene {
         )
       )
         continue
-      const mesh = standee(texture(s.canvas))
-      this.weather.shade(mesh.material as THREE.MeshLambertMaterial, { snow: 1, wet: 0.4 })
+      const map = texture(s.canvas),
+        glow = s.glow && texture(s.glow)
+      const mesh = standee(map, { frame: [width, s.canvas.height], emissive: glow })
+      const material = mesh.material as THREE.MeshLambertMaterial
+      if (glow) this.selfLit.push(material)
+      if (frames > 1) {
+        const maps = glow ? [map, glow] : [map]
+        for (const m of maps) m.repeat.x = 1 / frames
+        this.flipbooks.push({ maps, frames, fps: s.fps ?? 1 })
+      }
+      this.weather.shade(material, { snow: 1, wet: 0.4 })
       const sx = Math.round(s.x / PIXEL) * PIXEL,
         sy = Math.round(s.y / PIXEL) * PIXEL
       this.upright.push((t) => stand(mesh, sx, sy, t))
       this.scene.add(mesh)
-      const clear = Math.ceil(s.canvas.width / 2) + 3
+      const clear = Math.ceil(width / 2) + 3
       for (let dy = -Math.ceil(s.canvas.height * 0.6); dy <= 4; dy++)
         for (let dx = -clear; dx <= clear; dx++) {
           const i = pxIndex(sx + dx * PIXEL, sy + dy * PIXEL, pw)
@@ -1007,13 +1018,6 @@ export class HdScene {
         sy = Math.round(y / PIXEL) * PIXEL
       this.upright.push((t) => stand(mesh, sx, sy, t))
       this.scene.add(mesh)
-      if (!bush)
-        this.riverArt.tree(
-          mesh,
-          sx,
-          sy,
-          (cache.get(key)!.image as HTMLCanvasElement).width * PIXEL * scale
-        )
     }
     for (const v of decor.vegetation) {
       if (v.kind === 'grass' || v.kind === 'flowers') continue
@@ -1140,11 +1144,6 @@ export class HdScene {
 
   /** 立牌每帧挪过之后、以及新名册改了目标之后调用：SVG 里的名字和心声泡按 villagerLag 跟上立牌 */
   onVillagersMoved?: () => void
-  onDecorationChange?: () => void
-
-  get decorationObstacles() {
-    return this.riverArt.obstacles
-  }
 
   /** 村民位置；fresh 表示这是新来的一份名册。两份之间由场景自己匀速走过去（见 villagers.ts） */
   setVillagers(placements: VillagerPlacement[], fresh = false) {
@@ -1254,6 +1253,7 @@ export class HdScene {
     // 夜里灯只是点缀：窗户和路灯微亮，看清人和房子靠天光和对比度
     for (const m of this.glowing) (m as THREE.MeshLambertMaterial).emissiveIntensity = night * 0.9
     for (const m of this.moonlit) m.emissiveIntensity = night * ROOF_NIGHT_GLOW
+    for (const m of this.selfLit) m.emissiveIntensity = lerp(0.3, 0.55, night)
     for (const g of this.glows) g.material.opacity = night * 0.3
     for (const l of this.lampLights) l.intensity = night * 220
     for (const b of this.beams) (b.material as THREE.MeshBasicMaterial).opacity = night * 0.45
@@ -1342,7 +1342,6 @@ export class HdScene {
     this.props.dispose()
     this.pitchControl?.remove()
     this.villagers.dispose()
-    this.riverArt.dispose()
     for (const o of this.observers) o.disconnect()
     this.scene.traverse((o) => {
       // 灯连同阴影贴图（太阳的是 4096×4096）一起释放

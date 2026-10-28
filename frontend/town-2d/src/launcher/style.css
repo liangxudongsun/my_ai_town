@@ -46,6 +46,10 @@ body:has(.map-launcher) {
   overflow: hidden;
   touch-action: none;
 }
+.map-preview-scene {
+  position: absolute;
+  inset: 0;
+}
 /* 立体场景还没建好时 SVG 上只有底色和放大的地名，先藏起来，由「正在加载预览…」占着 */
 .map-preview svg.map-loading {
   visibility: hidden;

@@ -2,23 +2,37 @@ import type { Atlas } from 'town-shared/mapDocument'
 import { PIXEL } from '../grid'
 import type { Dock } from '../pixel/island'
 import { hash, mixHex } from '../pixel/noise'
+import { fountain } from './fountain'
 import { sprite, stone } from './sprite'
 
 // 户外地点的立体标志物：摩天轮、旋转亭、方尖碑、喷泉、神庙遗迹、弧形阶台这些地标，
 // 以及市场的摊位、港口栈桥边的船、花园的花拱门、公园的凉亭。都是竖在地上的像素立牌，
 // 和树、路灯一样按俯角转向镜头；光从左上来，左边亮右边暗。一个贴图像素对应一个地图像素。
 
+/** 逐帧动画的立牌：canvas 是横排 frames 帧的图集，每秒 fps 帧循环播放 */
+export interface Flipbook {
+  canvas: HTMLCanvasElement
+  /** 自发光图集（和 canvas 一样大）：白天微亮，夜里像打了灯 */
+  glow?: HTMLCanvasElement
+  frames: number
+  fps: number
+}
+
 export interface LandmarkSprite {
   /** 立牌底边中点（地图坐标） */
   x: number
   y: number
   canvas: HTMLCanvasElement
+  /** 逐帧动画的立牌（见 Flipbook）：canvas 是图集，另带帧数、帧率和自发光图集 */
+  frames?: number
+  fps?: number
+  glow?: HTMLCanvasElement
 }
 
 /** 一种风格的户外立牌：各类地点放什么、栈桥边停什么船、野地和外圈散落什么 */
 export interface LandmarkSet {
-  /** 一种户外地点在自己的区域里放哪些立牌：[贴图, 相对区域中心的偏移（地图像素）] */
-  plans: Record<string, (seed: number) => [HTMLCanvasElement, number, number][]>
+  /** 一种户外地点在自己的区域里放哪些立牌：[贴图或逐帧动画, 相对区域中心的偏移（地图像素）] */
+  plans: Record<string, (seed: number) => [HTMLCanvasElement | Flipbook, number, number][]>
   boat: (seed: number) => HTMLCanvasElement
   /** 散落物：每个地图像素放一件的概率，野地（land）和外圈（outer）分开算；sprite 给出一件的贴图 */
   scatter?: {
@@ -142,41 +156,6 @@ export function obelisk() {
     for (let y = 4; y < 12; y++) {
       const half = Math.round(((y - 3) / 8) * 3)
       for (let x = 10 - half; x < 10 + half; x++) px(x, y, x < 10 ? '#f0d070' : '#c8a040')
-    }
-  })
-}
-
-function fountain() {
-  return sprite(58, 46, ({ px, rect, line }) => {
-    const ellipse = (cx: number, cy: number, rx: number, ry: number, c: (t: number) => string) => {
-      for (let y = -ry; y <= ry; y++) {
-        const half = Math.round(rx * Math.sqrt(1 - (y / ry) ** 2))
-        for (let x = -half; x <= half; x++) px(cx + x, cy + y, c((x + half) / (2 * half + 1)))
-      }
-    }
-    // 水池：石沿、水面、朝前的池壁
-    rect(3, 36, 52, 8, '#aca494')
-    rect(3, 36, 52, 1, '#c8c0b0')
-    rect(3, 43, 52, 1, '#7c7466')
-    for (let x = 3; x < 55; x += 7) rect(x, 37, 1, 6, '#948c7e')
-    ellipse(29, 35, 26, 6, (t) => stone(t, '#c2baa9'))
-    ellipse(29, 35, 23, 4, () => '#4f88a6')
-    for (let k = 0; k < 14; k++)
-      rect(10 + Math.floor(hash(k, 3, 9) * 36), 33 + Math.floor(hash(k, 4, 9) * 4), 2, 1, '#9cc6d2')
-    // 中间的柱子、上层小盆和雕像
-    rect(26, 18, 6, 17, '#c8c0b0')
-    rect(26, 18, 2, 17, '#e0d8c8')
-    rect(30, 18, 2, 17, '#a09888')
-    ellipse(29, 18, 10, 2, (t) => stone(t, '#c2baa9'))
-    rect(21, 18, 17, 1, '#5c93ad')
-    rect(27, 6, 4, 11, '#e4e0d8')
-    rect(26, 9, 6, 4, '#e4e0d8')
-    rect(28, 3, 3, 3, '#e4e0d8')
-    rect(30, 6, 1, 11, '#b8b2a8')
-    // 从上层盆边落下的水
-    for (const d of [-1, 1]) {
-      line(29 + d * 10, 19, 29 + d * 14, 33, '#9cc6d2')
-      line(29 + d * 9, 20, 29 + d * 12, 33, '#cfe6ee')
     }
   })
 }
@@ -401,8 +380,12 @@ export function landmarkSprites(
     if (!plan) continue
     const cx = (box.x0 + box.x1) / 2,
       cy = (box.y0 + box.y1) / 2
-    for (const [canvas, dx, dy] of plan(seed + out.length))
-      out.push({ x: cx + dx * PIXEL, y: cy + dy * PIXEL, canvas })
+    for (const [art, dx, dy] of plan(seed + out.length))
+      out.push({
+        x: cx + dx * PIXEL,
+        y: cy + dy * PIXEL,
+        ...(art instanceof HTMLCanvasElement ? { canvas: art } : art),
+      })
   }
   return out
 }

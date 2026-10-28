@@ -1,6 +1,7 @@
 import 'town-shared/style.css'
 import './style.css'
 import type { MapEntry } from 'town-shared/mapDocument'
+import type { GameMap } from 'town-shared/gameMap'
 import { $, query } from 'town-shared/dom'
 import { errorText } from 'town-shared/format'
 import { pauseWorld } from 'town-shared/pauseWorld'
@@ -11,7 +12,7 @@ import { initCreator } from './creator'
 import { api } from './api'
 import { warmSelectedGame } from '../startupWarmup'
 import { createMusicController } from 'town-shared/audio/music'
-import { installPlatform, isCompact, onBack, systemBars } from 'town-shared/platform'
+import { installPlatform, isCompact, isTouch, onBack, systemBars } from 'town-shared/platform'
 import { installSelects } from 'town-shared/design/select'
 import { installFavicon, logoUrl } from 'town-shared/brand/brand'
 import { installHomeSettings } from './settings'
@@ -65,8 +66,45 @@ const homeSettings = installHomeSettings({ music: launcherMusic })
 let fitNext = ''
 let selected: MapEntry | undefined,
   request = 0,
-  maps: MapEntry[] = [],
-  previewMap: { dispose(): void } | undefined
+  maps: MapEntry[] = []
+
+type Preview = { host: HTMLElement; map: GameMap }
+// 桌面保留最近两张预览，避免来回切换时重新生成地面和 WebGL 场景；触屏设备只保留一张，控制显存。
+const previews = new Map<string, Preview>()
+let pendingPreview: Preview | undefined
+const previewKey = (map: MapEntry) => (map.mapHash ? `${map.id}:${map.mapHash}` : '')
+function dropPendingPreview() {
+  const pending = pendingPreview
+  pendingPreview = undefined
+  if (!pending) return
+  pending.map.dispose()
+  pending.host.remove()
+}
+function dropPreview(key: string) {
+  const preview = previews.get(key)
+  if (!preview) return
+  previews.delete(key)
+  preview.map.dispose()
+  preview.host.remove()
+}
+function showPreview(key: string) {
+  for (const [id, preview] of previews) preview.host.hidden = id !== key
+  const preview = previews.get(key)
+  if (preview) {
+    previews.delete(key)
+    previews.set(key, preview)
+  }
+}
+function finishPreview(map: MapEntry) {
+  $('preview-state').hidden = true
+  scenic.disabled = false
+  if (fitNext === map.id) {
+    fitNext = ''
+    $('map-preview')
+      .querySelector<HTMLButtonElement>('.map-preview-scene:not([hidden]) .zoom-readout')
+      ?.click()
+  }
+}
 
 function describe(map: MapEntry) {
   document
@@ -98,29 +136,50 @@ async function select(map: MapEntry) {
   describe(map)
   warmSelectedGame(map)
   retry.hidden = true
-  previewMap?.dispose()
-  previewMap = undefined
-  $('map-preview').replaceChildren()
+  dropPendingPreview()
+  const key = previewKey(map)
+  showPreview(key)
+  if (key && previews.has(key)) {
+    finishPreview(map)
+    return
+  }
   $('preview-state').hidden = false
   $('preview-state').textContent = '正在加载预览…'
   try {
     const mapDocument = await loadDocument(map.id, map.mapHash)
     if (current !== request) return
-    const rendered = await createMapRenderer(mapDocument, $('map-preview'))
+    // 先让加载提示有机会显示，再在主线程计算地面和创建场景。
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    if (current !== request) return
+    const limit = isTouch() ? 1 : 2
+    while (previews.size >= limit) dropPreview(previews.keys().next().value!)
+    const host = document.createElement('div')
+    host.className = 'map-preview-scene'
+    $('map-preview').append(host)
+    let rendered: GameMap
+    try {
+      rendered = await createMapRenderer(mapDocument, host)
+    } catch (error) {
+      host.remove()
+      throw error
+    }
     if (current !== request) {
       rendered.dispose()
+      host.remove()
       return
     }
-    previewMap = rendered
+    const pending = (pendingPreview = { host, map: rendered })
     // 立体场景建好再拿掉「正在加载预览…」：之前只有底色和放大的地名
     await rendered.ready
-    if (current !== request) return
-    $('preview-state').hidden = true
-    scenic.disabled = false
-    if (fitNext === map.id) {
-      fitNext = ''
-      $('map-preview').querySelector<HTMLButtonElement>('.zoom-readout')?.click()
+    if (current !== request) {
+      if (pendingPreview === pending) dropPendingPreview()
+      return
     }
+    pendingPreview = undefined
+    // 没有摘要时不能判断内容是否变化，只在本次选中期间保留。
+    const cacheKey = key || `${map.id}:request:${current}`
+    previews.set(cacheKey, { host, map: rendered })
+    finishPreview(map)
   } catch (error) {
     if (current === request) {
       $('preview-state').textContent = errorText(error)
@@ -160,6 +219,7 @@ function mapOption(map: MapEntry) {
   text.append(name, status)
   b.append(text)
   b.onclick = () => {
+    if (selected?.id === map.id && selected.mapHash === map.mapHash && retry.hidden) return
     void select(map)
   }
   return b
@@ -295,14 +355,12 @@ remove.onclick = async () => {
   $('pause-status').textContent = '正在关闭服务并删除地图…'
   try {
     await api(`/${encodeURIComponent(map.id)}/delete`, {})
+    for (const key of previews.keys()) if (key.startsWith(`${map.id}:`)) dropPreview(key)
     if (selected?.id === map.id) {
       selected = undefined
       ++request
+      dropPendingPreview()
       remove.hidden = true
-      // 预览地图要释放掉，不然立体场景还在后台按帧重画
-      previewMap?.dispose()
-      previewMap = undefined
-      $('map-preview').replaceChildren()
       document.querySelector<HTMLElement>('.map-detail')!.hidden = true
     }
     if (await refresh(selected?.id)) $('pause-status').textContent = `已删除“${map.name}”。`

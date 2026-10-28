@@ -301,7 +301,6 @@ export class TownMap {
         this.rooms.attach(this.svg, this.hd.houses)
         this.hd.onTilt = () => this.applyTilt()
         this.hd.onVillagersMoved = () => this.followVillagers()
-        this.hd.onDecorationChange = () => this.applyRouteObstacles()
         this.applyTilt()
         if (this.viewInsets) this.hd.setFocusInsets(this.viewInsets.top, this.viewInsets.bottom)
         this.camera.setViewPresets([
@@ -595,14 +594,6 @@ export class TownMap {
           half: [0.5, 0.5],
         })
       }
-    }
-    for (const p of this.hd?.decorationObstacles ?? []) {
-      const unit = this.walkUnit
-      obstacles.push({
-        space: OUTDOOR_SPACE,
-        position: [p.x / unit, p.z / unit],
-        half: [p.width / (2 * unit), p.depth / (2 * unit)],
-      })
     }
     this.routes?.setObstacles(obstacles)
   }

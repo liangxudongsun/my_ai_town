@@ -13,11 +13,6 @@ frontend/town-shared/src/brand/logo.svg 及由它生成的应用图标，
 不额外授予将这些素材单独打包、售卖或用于其他项目的许可。
 如需超出此范围使用，请联系维护者核对具体作品的权利人和授权。
 
-新增河畔场景素材：frontend/town-2d/src/assets/river-material-atlas.png
-由 imagegen 生成；river-kit.glb 的几何由 scripts/art/build-river-kit.py
-通过 Blender 程序生成，编辑源文件为 assets/art/river-kit.blend。
-这些素材随本项目分发，使用范围同本节；不包含参考游戏的提取素材。
-
 2. 音乐
 frontend/town-shared/assets/music/ 的 13 首 music_town_*.m4a：
 旧制作记录注明使用 Suno Pro/Premier 生成；维护者现已确认可随项目分发。

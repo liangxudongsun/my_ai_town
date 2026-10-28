@@ -97,6 +97,7 @@ export class MapCamera {
     this.installZoomControls(container)
     this.installPanZoom(container, initialView)
     this.resize = new ResizeObserver(() => {
+      if (!container.clientWidth || !container.clientHeight) return
       this.scale = this.fitted ? this.fitScale() : this.levels()[this.indexOf(this.scale)]
       this.applyViewBox()
     })
